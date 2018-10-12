@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/concourse/voyager"
-	"github.com/concourse/voyager/migrations"
-	"github.com/concourse/voyager/runner"
-	"github.com/concourse/voyager/voyagerfakes"
+	"github.com/ddadlani/voyager"
+	"github.com/ddadlani/voyager/migrations"
+	"github.com/ddadlani/voyager/runner"
+	"github.com/ddadlani/voyager/voyagerfakes"
 	"github.com/lib/pq"
 
 	. "github.com/onsi/ginkgo"
