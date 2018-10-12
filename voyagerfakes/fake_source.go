@@ -4,7 +4,7 @@ package voyagerfakes
 import (
 	"sync"
 
-	"github.com/concourse/voyager"
+	"github.com/ddadlani/voyager"
 )
 
 type FakeSource struct {

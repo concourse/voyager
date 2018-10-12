@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	cmd "github.com/concourse/voyager/cli/command"
+	cmd "github.com/ddadlani/voyager/cli/command"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

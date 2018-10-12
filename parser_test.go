@@ -1,8 +1,8 @@
 package voyager_test
 
 import (
-	"github.com/concourse/voyager"
-	"github.com/concourse/voyager/voyagerfakes"
+	"github.com/ddadlani/voyager"
+	"github.com/ddadlani/voyager/voyagerfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

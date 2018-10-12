@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"reflect"
 
-	"github.com/concourse/voyager/runner"
+	"github.com/ddadlani/voyager/runner"
 )
 
 type TestGoMigrationsRunner struct {
