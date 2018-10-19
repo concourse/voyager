@@ -70,7 +70,7 @@ func (m *migrator) CurrentVersion() (int, error) {
 	}
 
 	if dirty {
-		return -1, errors.New("could not determine current migration version. Database is in dirty state")
+		return -1, errors.New("could not determine current migration version. Database is in a dirty state")
 	}
 
 	for direction == "down" {
@@ -93,7 +93,7 @@ func (m *migrator) Migrate(toVersion int) error {
 		defer m.releaseLock()
 	}
 
-	existingDBVersion, err := m.migrateFromSchemaMigrations()
+	existingDBVersion, err := m.migrateFromOldSchema()
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (m *migrator) Migrate(toVersion int) error {
 			}
 		}
 
-		err = m.migrateToSchemaMigrations(toVersion)
+		err = m.migrateToOldSchema(toVersion)
 		if err != nil {
 			return err
 		}
@@ -289,14 +289,14 @@ func CheckTableExist(db *sql.DB, tableName string) bool {
 	return err != nil || exists
 }
 
-func (m *migrator) migrateFromSchemaMigrations() (int, error) {
-	if !CheckTableExist(m.db, "schema_migrations") || CheckTableExist(m.db, "migrations_history") {
+func (m *migrator) migrateFromOldSchema() (int, error) {
+	if !CheckTableExist(m.db, "old_schema") || CheckTableExist(m.db, "migrations_history") {
 		return 0, nil
 	}
 
 	var isDirty = false
 	var existingVersion int
-	err := m.db.QueryRow("SELECT dirty, version FROM schema_migrations LIMIT 1").Scan(&isDirty, &existingVersion)
+	err := m.db.QueryRow("SELECT dirty, version FROM old_schema LIMIT 1").Scan(&isDirty, &existingVersion)
 	if err != nil {
 		return 0, err
 	}
@@ -308,25 +308,26 @@ func (m *migrator) migrateFromSchemaMigrations() (int, error) {
 	return existingVersion, nil
 }
 
-func (m *migrator) migrateToSchemaMigrations(toVersion int) error {
+func (m *migrator) migrateToOldSchema(toVersion int) error {
 	newMigrationsHistoryFirstVersion := 1532706545
+	oldMigrationsSchemaLatestVersion := 101010
 
 	if toVersion >= newMigrationsHistoryFirstVersion {
 		return nil
 	}
 
-	if !CheckTableExist(m.db, "schema_migrations") {
-		_, err := m.db.Exec("CREATE TABLE schema_migrations (version bigint, dirty boolean)")
+	if !CheckTableExist(m.db, "old_schema") {
+		_, err := m.db.Exec("CREATE TABLE old_schema (version bigint, dirty boolean)")
 		if err != nil {
 			return err
 		}
 
-		_, err = m.db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES ($1, false)", toVersion)
+		_, err = m.db.Exec("INSERT INTO old_schema (version, dirty) VALUES ($1, false)", oldMigrationsSchemaLatestVersion)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err := m.db.Exec("UPDATE schema_migrations SET version=$1, dirty=false", toVersion)
+		_, err := m.db.Exec("UPDATE old_schema SET version=$1, dirty=false", oldMigrationsSchemaLatestVersion)
 		if err != nil {
 			return err
 		}
