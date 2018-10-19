@@ -22,13 +22,14 @@ type Migrator interface {
 	Migrations() ([]migration, error)
 }
 
-func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner) Migrator {
+func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
 	return &migrator{
 		db,
 		lockID,
 		lager.NewLogger("migrations"),
 		source,
 		migrationsRunner,
+		adapter,
 		&sync.Mutex{},
 	}
 }
@@ -39,7 +40,16 @@ type migrator struct {
 	logger             lager.Logger
 	source             Source
 	goMigrationsRunner runner.MigrationsRunner
+	adapter            SchemaAdapter
 	*sync.Mutex
+}
+
+//go:generate counterfeiter . SchemaAdapter
+type SchemaAdapter interface {
+	MigrateFromOldSchema(*sql.DB) (int, error)
+	MigrateToOldSchema(*sql.DB, int) error
+	OldSchemaLastVersion() int
+	FirstVersion() int
 }
 
 func (m *migrator) SupportedVersion() (int, error) {
@@ -58,10 +68,17 @@ func (m *migrator) SupportedVersion() (int, error) {
 }
 
 func (m *migrator) CurrentVersion() (int, error) {
+
+	var migrationHistoryExists bool
+	err := m.db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables where table_name='migrations_history')").Scan(&migrationHistoryExists)
+	if !migrationHistoryExists && m.adapter != nil {
+		return m.adapter.OldSchemaLastVersion(), nil
+	}
+
 	var currentVersion int
 	var direction string
 	var dirty bool
-	err := m.db.QueryRow("SELECT version, direction, dirty FROM migrations_history WHERE status!='failed' ORDER BY tstamp DESC LIMIT 1").Scan(&currentVersion, &direction, &dirty)
+	err = m.db.QueryRow("SELECT version, direction, dirty FROM migrations_history WHERE status!='failed' ORDER BY tstamp DESC LIMIT 1").Scan(&currentVersion, &direction, &dirty)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
@@ -93,9 +110,12 @@ func (m *migrator) Migrate(toVersion int) error {
 		defer m.releaseLock()
 	}
 
-	existingDBVersion, err := m.migrateFromOldSchema()
-	if err != nil {
-		return err
+	var existingDBVersion int
+	if m.adapter != nil {
+		existingDBVersion, err = m.adapter.MigrateFromOldSchema(m.db)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = m.db.Exec("CREATE TABLE IF NOT EXISTS migrations_history (version bigint, tstamp timestamp with time zone, direction varchar, status varchar, dirty boolean)")
@@ -145,9 +165,11 @@ func (m *migrator) Migrate(toVersion int) error {
 			}
 		}
 
-		err = m.migrateToOldSchema(toVersion)
-		if err != nil {
-			return err
+		if m.adapter != nil {
+			err = m.adapter.MigrateToOldSchema(m.db, toVersion)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -281,57 +303,4 @@ func sortMigrations(migrationList []migration) {
 	sort.Slice(migrationList, func(i, j int) bool {
 		return migrationList[i].Version < migrationList[j].Version
 	})
-}
-
-func CheckTableExist(db *sql.DB, tableName string) bool {
-	var exists bool
-	err := db.QueryRow("SELECT EXISTS ( SELECT 1 FROM information_schema.tables WHERE table_name=$1)", tableName).Scan(&exists)
-	return err != nil || exists
-}
-
-func (m *migrator) migrateFromOldSchema() (int, error) {
-	if !CheckTableExist(m.db, "old_schema") || CheckTableExist(m.db, "migrations_history") {
-		return 0, nil
-	}
-
-	var isDirty = false
-	var existingVersion int
-	err := m.db.QueryRow("SELECT dirty, version FROM old_schema LIMIT 1").Scan(&isDirty, &existingVersion)
-	if err != nil {
-		return 0, err
-	}
-
-	if isDirty {
-		return 0, errors.New("cannot begin migration. Database is in a dirty state")
-	}
-
-	return existingVersion, nil
-}
-
-func (m *migrator) migrateToOldSchema(toVersion int) error {
-	newMigrationsHistoryFirstVersion := 1532706545
-	oldMigrationsSchemaLatestVersion := 101010
-
-	if toVersion >= newMigrationsHistoryFirstVersion {
-		return nil
-	}
-
-	if !CheckTableExist(m.db, "old_schema") {
-		_, err := m.db.Exec("CREATE TABLE old_schema (version bigint, dirty boolean)")
-		if err != nil {
-			return err
-		}
-
-		_, err = m.db.Exec("INSERT INTO old_schema (version, dirty) VALUES ($1, false)", oldMigrationsSchemaLatestVersion)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := m.db.Exec("UPDATE old_schema SET version=$1, dirty=false", oldMigrationsSchemaLatestVersion)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

@@ -2,25 +2,16 @@
 package voyagerfakes
 
 import (
-	"sync"
+	sync "sync"
 
-	"github.com/ddadlani/voyager"
+	voyager "github.com/ddadlani/voyager"
 )
 
 type FakeSource struct {
-	AssetNamesStub        func() []string
-	assetNamesMutex       sync.RWMutex
-	assetNamesArgsForCall []struct{}
-	assetNamesReturns     struct {
-		result1 []string
-	}
-	assetNamesReturnsOnCall map[int]struct {
-		result1 []string
-	}
-	AssetStub        func(name string) ([]byte, error)
+	AssetStub        func(string) ([]byte, error)
 	assetMutex       sync.RWMutex
 	assetArgsForCall []struct {
-		name string
+		arg1 string
 	}
 	assetReturns struct {
 		result1 []byte
@@ -30,65 +21,36 @@ type FakeSource struct {
 		result1 []byte
 		result2 error
 	}
+	AssetNamesStub        func() []string
+	assetNamesMutex       sync.RWMutex
+	assetNamesArgsForCall []struct {
+	}
+	assetNamesReturns struct {
+		result1 []string
+	}
+	assetNamesReturnsOnCall map[int]struct {
+		result1 []string
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeSource) AssetNames() []string {
-	fake.assetNamesMutex.Lock()
-	ret, specificReturn := fake.assetNamesReturnsOnCall[len(fake.assetNamesArgsForCall)]
-	fake.assetNamesArgsForCall = append(fake.assetNamesArgsForCall, struct{}{})
-	fake.recordInvocation("AssetNames", []interface{}{})
-	fake.assetNamesMutex.Unlock()
-	if fake.AssetNamesStub != nil {
-		return fake.AssetNamesStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.assetNamesReturns.result1
-}
-
-func (fake *FakeSource) AssetNamesCallCount() int {
-	fake.assetNamesMutex.RLock()
-	defer fake.assetNamesMutex.RUnlock()
-	return len(fake.assetNamesArgsForCall)
-}
-
-func (fake *FakeSource) AssetNamesReturns(result1 []string) {
-	fake.AssetNamesStub = nil
-	fake.assetNamesReturns = struct {
-		result1 []string
-	}{result1}
-}
-
-func (fake *FakeSource) AssetNamesReturnsOnCall(i int, result1 []string) {
-	fake.AssetNamesStub = nil
-	if fake.assetNamesReturnsOnCall == nil {
-		fake.assetNamesReturnsOnCall = make(map[int]struct {
-			result1 []string
-		})
-	}
-	fake.assetNamesReturnsOnCall[i] = struct {
-		result1 []string
-	}{result1}
-}
-
-func (fake *FakeSource) Asset(name string) ([]byte, error) {
+func (fake *FakeSource) Asset(arg1 string) ([]byte, error) {
 	fake.assetMutex.Lock()
 	ret, specificReturn := fake.assetReturnsOnCall[len(fake.assetArgsForCall)]
 	fake.assetArgsForCall = append(fake.assetArgsForCall, struct {
-		name string
-	}{name})
-	fake.recordInvocation("Asset", []interface{}{name})
+		arg1 string
+	}{arg1})
+	fake.recordInvocation("Asset", []interface{}{arg1})
 	fake.assetMutex.Unlock()
 	if fake.AssetStub != nil {
-		return fake.AssetStub(name)
+		return fake.AssetStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.assetReturns.result1, fake.assetReturns.result2
+	fakeReturns := fake.assetReturns
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *FakeSource) AssetCallCount() int {
@@ -97,13 +59,22 @@ func (fake *FakeSource) AssetCallCount() int {
 	return len(fake.assetArgsForCall)
 }
 
+func (fake *FakeSource) AssetCalls(stub func(string) ([]byte, error)) {
+	fake.assetMutex.Lock()
+	defer fake.assetMutex.Unlock()
+	fake.AssetStub = stub
+}
+
 func (fake *FakeSource) AssetArgsForCall(i int) string {
 	fake.assetMutex.RLock()
 	defer fake.assetMutex.RUnlock()
-	return fake.assetArgsForCall[i].name
+	argsForCall := fake.assetArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *FakeSource) AssetReturns(result1 []byte, result2 error) {
+	fake.assetMutex.Lock()
+	defer fake.assetMutex.Unlock()
 	fake.AssetStub = nil
 	fake.assetReturns = struct {
 		result1 []byte
@@ -112,6 +83,8 @@ func (fake *FakeSource) AssetReturns(result1 []byte, result2 error) {
 }
 
 func (fake *FakeSource) AssetReturnsOnCall(i int, result1 []byte, result2 error) {
+	fake.assetMutex.Lock()
+	defer fake.assetMutex.Unlock()
 	fake.AssetStub = nil
 	if fake.assetReturnsOnCall == nil {
 		fake.assetReturnsOnCall = make(map[int]struct {
@@ -125,13 +98,65 @@ func (fake *FakeSource) AssetReturnsOnCall(i int, result1 []byte, result2 error)
 	}{result1, result2}
 }
 
+func (fake *FakeSource) AssetNames() []string {
+	fake.assetNamesMutex.Lock()
+	ret, specificReturn := fake.assetNamesReturnsOnCall[len(fake.assetNamesArgsForCall)]
+	fake.assetNamesArgsForCall = append(fake.assetNamesArgsForCall, struct {
+	}{})
+	fake.recordInvocation("AssetNames", []interface{}{})
+	fake.assetNamesMutex.Unlock()
+	if fake.AssetNamesStub != nil {
+		return fake.AssetNamesStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.assetNamesReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeSource) AssetNamesCallCount() int {
+	fake.assetNamesMutex.RLock()
+	defer fake.assetNamesMutex.RUnlock()
+	return len(fake.assetNamesArgsForCall)
+}
+
+func (fake *FakeSource) AssetNamesCalls(stub func() []string) {
+	fake.assetNamesMutex.Lock()
+	defer fake.assetNamesMutex.Unlock()
+	fake.AssetNamesStub = stub
+}
+
+func (fake *FakeSource) AssetNamesReturns(result1 []string) {
+	fake.assetNamesMutex.Lock()
+	defer fake.assetNamesMutex.Unlock()
+	fake.AssetNamesStub = nil
+	fake.assetNamesReturns = struct {
+		result1 []string
+	}{result1}
+}
+
+func (fake *FakeSource) AssetNamesReturnsOnCall(i int, result1 []string) {
+	fake.assetNamesMutex.Lock()
+	defer fake.assetNamesMutex.Unlock()
+	fake.AssetNamesStub = nil
+	if fake.assetNamesReturnsOnCall == nil {
+		fake.assetNamesReturnsOnCall = make(map[int]struct {
+			result1 []string
+		})
+	}
+	fake.assetNamesReturnsOnCall[i] = struct {
+		result1 []string
+	}{result1}
+}
+
 func (fake *FakeSource) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.assetNamesMutex.RLock()
-	defer fake.assetNamesMutex.RUnlock()
 	fake.assetMutex.RLock()
 	defer fake.assetMutex.RUnlock()
+	fake.assetNamesMutex.RLock()
+	defer fake.assetNamesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
