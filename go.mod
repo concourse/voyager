@@ -1,8 +1,7 @@
-module github.com/concourse/voyager
+module github.com/ddadlani/voyager
 
 require (
 	code.cloudfoundry.org/lager v2.0.0+incompatible
-	github.com/ddadlani/voyager v0.0.0-20181019224159-a6024c83f810
 	github.com/gobuffalo/packr v1.13.7
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/jessevdk/go-flags v1.4.0
