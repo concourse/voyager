@@ -1,5 +1,5 @@
 package runner
 
 type MigrationsRunner interface {
-	Run(name string) error
+	Run(name string, args []interface{}) error
 }

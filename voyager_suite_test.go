@@ -49,7 +49,18 @@ var _ = AfterSuite(func() {
 	Eventually(dbProcess.Wait(), 10*time.Second).Should(Receive())
 })
 
-var asset = packr.NewBox("./migrations").MustBytes
+var box = packr.NewBox("./migrations")
+var asset = box.MustBytes
+var assetNames = func() []string {
+	migrations := []string{}
+	for _, name := range box.List() {
+		if name != "migrations.go" {
+			migrations = append(migrations, name)
+		}
+	}
+
+	return migrations
+}
 
 type Runner struct {
 	Port int
