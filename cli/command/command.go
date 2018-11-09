@@ -1,15 +1,21 @@
 package cli
 
 import (
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"text/template"
 	"time"
+
+	"github.com/ddadlani/voyager"
+	"github.com/gobuffalo/packr"
 )
 
-var defaultMigrationDir = "migrations/"
+var defaultMigrationDir = "../../migrations/"
+var advisoryLockID = 14656
 
 type MigrationType string
 
@@ -19,7 +25,16 @@ const (
 )
 
 type MigrationCommand struct {
-	GenerateCommand GenerateCommand `command:"generate"`
+	//TODO : use commands shortcuts.
+	GenerateCommand       GenerateCommand       `command:"generate"`
+	CurrentVersionCommand CurrentVersionCommand `command:"current-version"`
+	MigrateCommand        MigrateCommand        `command:"migrate"`
+}
+
+type MigrateCommand struct {
+	MigrationDirectory string `short:"d" long:"directory" default:"migrations" description:"The directory to which the migration files should be written"`
+	Version            string `short:"v" long:"version" default:"latest" description:"The migration version to migrate up or down to. Use 'latest' to migrate to the latest available version"`
+	ConnectionString   string `short:"c" long:"connection-string" description:"connection string for db"`
 }
 
 type GenerateCommand struct {
@@ -28,28 +43,40 @@ type GenerateCommand struct {
 	Type               MigrationType `short:"t" long:"type" description:"The file type of the migration"`
 }
 
-func NewGenerateCommand(migrationDir string, migrationName string, migrationType MigrationType) *GenerateCommand {
-	if migrationDir == "" {
-		migrationDir = defaultMigrationDir
+type CurrentVersionCommand struct {
+	ConnectionString string `short:"c" long:"connection-string"`
+}
+
+func (c *CurrentVersionCommand) Execute(args []string) error {
+
+	db, err := sql.Open("postgres", c.ConnectionString)
+	if err != nil {
+		return err
 	}
 
-	return &GenerateCommand{
-		migrationDir,
-		migrationName,
-		migrationType,
+	migrator := voyager.NewMigrator(db, advisoryLockID, nil, nil, nil, nil)
+
+	version, err := migrator.CurrentVersion()
+
+	if err != nil {
+		return err
 	}
+
+	fmt.Println("Last successfully applied migration:", version)
+
+	return nil
 }
 
 func (c *GenerateCommand) Execute(args []string) error {
 	if c.Type == SQL {
-		return c.GenerateSQLMigration()
+		return c.generateSQLMigration()
 	} else if c.Type == Go {
-		return c.GenerateGoMigration()
+		return c.generateGoMigration()
 	}
 	return fmt.Errorf("unsupported migration type %s. Supported types include %s and %s", c.Type, SQL, Go)
 }
 
-func (c *GenerateCommand) GenerateSQLMigration() error {
+func (c *GenerateCommand) generateSQLMigration() error {
 	currentTime := time.Now().Unix()
 	fileNameFormat := "%d_%s.%s.sql"
 
@@ -66,6 +93,38 @@ func (c *GenerateCommand) GenerateSQLMigration() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (c *MigrateCommand) Execute(args []string) error {
+
+	db, err := sql.Open("postgres", c.ConnectionString)
+
+	if err != nil {
+		return err
+	}
+
+	box := packr.NewBox(defaultMigrationDir)
+	migrator := voyager.NewMigrator(db, 0, source{box}, nil, nil, nil)
+
+	var toVersion int
+
+	if c.Version == "latest" {
+		toVersion = 0
+	} else {
+		toVersion, err = strconv.Atoi(c.Version)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = migrator.Migrate(toVersion)
+
+	if err != nil {
+		return fmt.Errorf("an error occurred while running migrations: %s", err.Error())
+	}
+
+	fmt.Println("Successfully migrated to version", c.Version)
 	return nil
 }
 
@@ -101,7 +160,7 @@ func renderGoMigrationToFile(filePath string, state migrationInfo) error {
 	return nil
 }
 
-func (c *GenerateCommand) GenerateGoMigration() error {
+func (c *GenerateCommand) generateGoMigration() error {
 	currentTime := time.Now().Unix()
 	fileNameFormat := "%d_%s.%s.go"
 
@@ -125,4 +184,23 @@ func (c *GenerateCommand) GenerateGoMigration() error {
 	}
 
 	return nil
+}
+
+type source struct {
+	packr.Box
+}
+
+func (s source) AssetNames() []string {
+	migrations := make([]string, 0)
+	for _, name := range s.List() {
+		if name != "migrations.go" {
+			migrations = append(migrations, name)
+		}
+	}
+
+	return migrations
+}
+
+func (s source) Asset(name string) ([]byte, error) {
+	return s.MustBytes(name)
 }

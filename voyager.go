@@ -19,7 +19,7 @@ type Migrator interface {
 	SupportedVersion() (int, error)
 	Migrate(version int) error
 	Up() error
-	Migrations() ([]migration, error)
+	Migrations() ([]migration, []int, error)
 }
 
 func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, goMigrationArgs []interface{}, adapter SchemaAdapter) Migrator {
@@ -141,9 +141,26 @@ func (m *migrator) Migrate(toVersion int) error {
 		return err
 	}
 
-	migrations, err := m.Migrations()
+	migrations, versions, err := m.Migrations()
 	if err != nil {
 		return err
+	}
+
+	isValidVersion := false
+	if toVersion == 0 {
+		toVersion = versions[len(versions)-1]
+		isValidVersion = true
+	} else {
+		for _, v := range versions {
+			if v == toVersion {
+				isValidVersion = true
+				break
+			}
+		}
+	}
+
+	if !isValidVersion {
+		return fmt.Errorf("could not find migration version %v. No changes were made", toVersion)
 	}
 
 	if currentVersion <= toVersion {
@@ -230,29 +247,32 @@ func (m *migrator) runMigration(migration migration) error {
 	return err
 }
 
-func (m *migrator) Migrations() ([]migration, error) {
+func (m *migrator) Migrations() ([]migration, []int, error) {
 	migrationList := []migration{}
+	versionList := []int{}
 	assets := m.source.AssetNames()
 	var parser = NewParser(m.source)
 	for _, assetName := range assets {
 		parsedMigration, err := parser.ParseFileToMigration(assetName)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		versionList = append(versionList, parsedMigration.Version)
 		migrationList = append(migrationList, parsedMigration)
 	}
 
 	sortMigrations(migrationList)
+	sort.Ints(versionList)
 
-	return migrationList, nil
+	return migrationList, versionList, nil
 }
 
 func (m *migrator) Up() error {
-	migrations, err := m.Migrations()
+	_, versions, err := m.Migrations()
 	if err != nil {
 		return err
 	}
-	return m.Migrate(migrations[len(migrations)-1].Version)
+	return m.Migrate(versions[len(versions)-1])
 }
 
 func (m *migrator) acquireLock() (bool, error) {

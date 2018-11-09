@@ -207,6 +207,29 @@ var _ = Describe("Voyager Migration", func() {
 					Expect(timeStamp.Time.Before(startTime)).To(Equal(true))
 				})
 			})
+
+			Context("when migrating to a version that doesn't exist", func() {
+				It("returns an error and doesn't perform any migration", func() {
+					migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+					err = migrator.Migrate(1000)
+					Expect(err).NotTo(HaveOccurred())
+
+					err = migrator.Migrate(20000)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("could not find migration version 20000. No changes were made"))
+
+					var timeStamp pq.NullTime
+					rows, err := db.Query("SELECT tstamp FROM migrations_history WHERE version=1000")
+					Expect(err).NotTo(HaveOccurred())
+					var numRows = 0
+					for rows.Next() {
+						err = rows.Scan(&timeStamp)
+						numRows++
+					}
+					Expect(numRows).To(Equal(1))
+
+				})
+			})
 		})
 
 		Context("sql migrations", func() {
@@ -225,7 +248,7 @@ var _ = Describe("Voyager Migration", func() {
 			})
 			It("runs a migration", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
-				migrations, err := migrator.Migrations()
+				migrations, _, err := migrator.Migrations()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(migrations)).To(Equal(1))
 
