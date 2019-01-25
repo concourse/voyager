@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ddadlani/voyager"
+	"github.com/ddadlani/voyager/migrations"
 	"github.com/gobuffalo/packr"
 )
 
@@ -105,7 +106,7 @@ func (c *MigrateCommand) Execute(args []string) error {
 	}
 
 	box := packr.NewBox(defaultMigrationDir)
-	migrator := voyager.NewMigrator(db, 0, source{box}, nil, nil, nil)
+	migrator := voyager.NewMigrator(db, 0, source{box}, migrations.NewMigrationsRunner(db), nil, nil)
 
 	var toVersion int
 
