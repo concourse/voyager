@@ -22,14 +22,13 @@ type Migrator interface {
 	Migrations() ([]migration, []int, error)
 }
 
-func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, goMigrationArgs []interface{}, adapter SchemaAdapter) Migrator {
+func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
 	return &migrator{
 		db,
 		lockID,
 		lager.NewLogger("migrations"),
 		source,
 		migrationsRunner,
-		goMigrationArgs,
 		adapter,
 		&sync.Mutex{},
 	}
@@ -41,7 +40,6 @@ type migrator struct {
 	logger             lager.Logger
 	source             Source
 	goMigrationsRunner runner.MigrationsRunner
-	goMigrationArgs    []interface{}
 	adapter            SchemaAdapter
 	*sync.Mutex
 }
@@ -219,7 +217,7 @@ func (m *migrator) runMigration(migration migration) error {
 
 	switch migration.Strategy {
 	case GoMigration:
-		err = m.goMigrationsRunner.Run(migration.Name, m.goMigrationArgs)
+		err = m.goMigrationsRunner.Run(migration.Name)
 		if err != nil {
 			return m.recordMigrationFailure(migration, err, false)
 		}

@@ -24,7 +24,6 @@ var _ = Describe("Voyager Migration", func() {
 		source   *voyagerfakes.FakeSource
 		runner   runner.MigrationsRunner
 		lockID   int
-		args     []interface{}
 		migrator voyager.Migrator
 	)
 
@@ -47,14 +46,8 @@ var _ = Describe("Voyager Migration", func() {
 	})
 
 	Context("Migration test run", func() {
-		BeforeEach(func() {
-			args = make([]interface{}, 2)
-
-			args[0] = "some_table"
-			args[1] = "metadata"
-		})
 		It("Runs all the migrations", func() {
-			migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+			migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 			err := migrator.Up()
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -67,7 +60,7 @@ var _ = Describe("Voyager Migration", func() {
 
 		Context("when the latest migration was an up migration", func() {
 			It("reports the current version stored in the database", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				version, err := migrator.CurrentVersion()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(version).To(Equal(2000))
@@ -86,7 +79,7 @@ var _ = Describe("Voyager Migration", func() {
 
 			It("reports the version before the latest down migration", func() {
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				version, err := migrator.CurrentVersion()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(version).To(Equal(3000))
@@ -100,7 +93,7 @@ var _ = Describe("Voyager Migration", func() {
 			})
 			It("throws an error", func() {
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				_, err := migrator.CurrentVersion()
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Database is in a dirty state"))
@@ -113,7 +106,7 @@ var _ = Describe("Voyager Migration", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("reports the version before the failed migration", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				version, err := migrator.CurrentVersion()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(version).To(Equal(2000))
@@ -134,14 +127,14 @@ var _ = Describe("Voyager Migration", func() {
 			})
 		})
 		It("SupportedVersion reports the highest supported migration version", func() {
-			migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+			migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 			version, err := migrator.SupportedVersion()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(20000))
 		})
 
 		It("Ignores files it can't parse", func() {
-			migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+			migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 			version, err := migrator.SupportedVersion()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(version).To(Equal(20000))
@@ -165,7 +158,7 @@ var _ = Describe("Voyager Migration", func() {
 			})
 
 			It("populate migrations_history table with starting version from old schema table", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, fakeAdapter)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, fakeAdapter)
 				startTime := time.Now()
 
 				err = migrator.Up()
@@ -191,7 +184,7 @@ var _ = Describe("Voyager Migration", func() {
 					SetupMigrationsHistoryTableToExistAtVersion(db, 8878, false)
 					startTime := time.Now()
 
-					migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Up()
 					Expect(err).NotTo(HaveOccurred())
 
@@ -210,7 +203,7 @@ var _ = Describe("Voyager Migration", func() {
 
 			Context("when migrating to a version that doesn't exist", func() {
 				It("returns an error and doesn't perform any migration", func() {
-					migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Migrate(1000)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -247,7 +240,7 @@ var _ = Describe("Voyager Migration", func() {
 				})
 			})
 			It("runs a migration", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				migrations, _, err := migrator.Migrations()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(migrations)).To(Equal(1))
@@ -267,7 +260,7 @@ var _ = Describe("Voyager Migration", func() {
 
 			It("ignores migrations before the current version", func() {
 				SetupMigrationsHistoryTableToExistAtVersion(db, 1000, false)
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -304,7 +297,7 @@ var _ = Describe("Voyager Migration", func() {
 					addTableMigrationFilename,
 				})
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -321,7 +314,7 @@ var _ = Describe("Voyager Migration", func() {
 						DROP TABLE nonexistent;
 					`), nil)
 
-					migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err := migrator.Up()
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("rolled back the migration"))
@@ -340,7 +333,7 @@ var _ = Describe("Voyager Migration", func() {
 						CREATE table some_table(id int, tstamp timestamp);
 				`), nil)
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err = migrator.Up()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -361,7 +354,7 @@ var _ = Describe("Voyager Migration", func() {
 
 				source.AssetReturns(ioutil.ReadFile("migrations/1000_initial_migration.up.sql"))
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 
 				var wg sync.WaitGroup
 				wg.Add(3)
@@ -389,7 +382,7 @@ var _ = Describe("Voyager Migration", func() {
 							DROP TABLE nonexistent;
 					`), nil)
 
-					migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err := migrator.Up()
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(MatchRegexp("Migration.*failed"))
@@ -409,7 +402,7 @@ var _ = Describe("Voyager Migration", func() {
 							ALTER TYPE enum_type ADD VALUE 'some_type';
 					`), nil)
 					startTime := time.Now()
-					migrator := voyager.NewMigrator(db, lockID, source, runner, nil, nil)
+					migrator := voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Up()
 					Expect(err).NotTo(HaveOccurred())
 
@@ -440,7 +433,7 @@ var _ = Describe("Voyager Migration", func() {
 							ALTER TYPE nonexistent_enum_type ADD VALUE 'some_type';
 					`), nil)
 					startTime := time.Now()
-					migrator := voyager.NewMigrator(db, lockID, source, runner, nil, nil)
+					migrator := voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Up()
 					Expect(err).To(HaveOccurred())
 
@@ -482,7 +475,7 @@ var _ = Describe("Voyager Migration", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(columnExists).To(Equal("false"))
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err = migrator.Migrate(4000)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -503,7 +496,7 @@ var _ = Describe("Voyager Migration", func() {
 					"4000_go_migration.down.go",
 				})
 
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -531,7 +524,7 @@ var _ = Describe("Voyager Migration", func() {
 				})
 			})
 			It("Downgrades to a given version", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -550,7 +543,7 @@ var _ = Describe("Voyager Migration", func() {
 			})
 
 			It("Doesn't fail if already at the requested version", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Migrate(2000)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -569,7 +562,7 @@ var _ = Describe("Voyager Migration", func() {
 			})
 
 			It("Locks the database so multiple consumers don't run downgrade at the same time", func() {
-				migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -592,7 +585,7 @@ var _ = Describe("Voyager Migration", func() {
 					dirty = true
 					SetupMigrationsHistoryTableToExistAtVersion(db, 4000, dirty)
 
-					migrator = voyager.NewMigrator(db, lockID, source, runner, args, nil)
+					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Migrate(1000)
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("Database is in a dirty state"))
@@ -631,7 +624,7 @@ var _ = Describe("Voyager Migration", func() {
 				})
 
 				It("populates old schema table with corresponding first version from migrations_history table", func() {
-					migrator = voyager.NewMigrator(db, lockID, source, runner, args, fakeAdapter)
+					migrator = voyager.NewMigrator(db, lockID, source, runner, fakeAdapter)
 					err = migrator.Up()
 					Expect(err).NotTo(HaveOccurred())
 
