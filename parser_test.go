@@ -100,7 +100,7 @@ var _ = Describe("Parser", func() {
 
 				migration, err := parser.ParseFileToMigration("3000_some_no_transaction_migration.up.sql")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(migration.Statements)).To(Equal(1))
+				Expect(len(migration.Statements)).To(Equal(2))
 			})
 		})
 	})

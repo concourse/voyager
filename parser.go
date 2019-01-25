@@ -62,7 +62,7 @@ func (p *Parser) ParseFileToMigration(migrationName string) (migration, error) {
 	case GoMigration:
 		migration.Name = goMigrationFuncName.FindString(migrationContents)
 	case SQLNoTransaction:
-		migration.Statements = []string{migrationContents}
+		migration.Statements = splitStatements(migrationContents)
 		migration.Name = migrationName
 	case SQLTransaction:
 		migration.Statements = splitStatements(migrationContents)
