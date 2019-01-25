@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func (m *TestGoMigrationsRunner) Up_4000(tableName, metadata string) error {
+func (m *TestGoMigrationsRunner) Up_4000() error {
 	type info struct {
 		id     int
 		tstamp time.Time
@@ -18,7 +18,7 @@ func (m *TestGoMigrationsRunner) Up_4000(tableName, metadata string) error {
 
 	defer tx.Commit()
 
-	_, err = tx.Exec("ALTER TABLE " + tableName + " ADD COLUMN name VARCHAR, ADD COLUMN metadata VARCHAR")
+	_, err = tx.Exec("ALTER TABLE some_table ADD COLUMN name VARCHAR, ADD COLUMN metadata VARCHAR")
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (m *TestGoMigrationsRunner) Up_4000(tableName, metadata string) error {
 
 	for _, info := range infos {
 		name := fmt.Sprintf("name_%v", info.id)
-		tx.Exec(`UPDATE some_table SET name=$1, metadata=$2 WHERE id=$3`, name, metadata, info.id)
+		tx.Exec(`UPDATE some_table SET name=$1, metadata=$2 WHERE id=$3`, name, m.metadata, info.id)
 	}
 
 	return nil
