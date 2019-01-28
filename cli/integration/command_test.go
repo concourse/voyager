@@ -169,7 +169,10 @@ func expectGeneratedFilesToMatchSpecification(migrationDir, fileNamePattern, mig
 			Expect(matches).To(HaveLen(4))
 			Expect(matches[2]).To(Equal(migrationName))
 
-			fileContents, err := ioutil.ReadFile(path.Join(migrationDir, migrationFileName))
+			filePath := path.Join(migrationDir, migrationFileName)
+			info, err := os.Stat(filePath)
+			Expect(uint32(info.Mode())).To(Equal(uint32(0644)))
+			fileContents, err := ioutil.ReadFile(filePath)
 			Expect(err).ToNot(HaveOccurred())
 			checkContents(matches[1], string(fileContents))
 			migrationFilesCount++
