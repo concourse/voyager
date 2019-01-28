@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ddadlani/voyager/helpers"
+	"github.com/concourse/voyager/helpers"
 	"github.com/gobuffalo/packr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
