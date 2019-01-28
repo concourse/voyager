@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/lager"
-	"github.com/ddadlani/voyager/runner"
+	"github.com/concourse/voyager/runner"
 	multierror "github.com/hashicorp/go-multierror"
 	_ "github.com/lib/pq"
 )

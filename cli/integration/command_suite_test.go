@@ -6,7 +6,7 @@ import (
 
 	"github.com/onsi/gomega/gexec"
 
-	"github.com/ddadlani/voyager/helpers"
+	"github.com/concourse/voyager/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit"
@@ -24,7 +24,7 @@ var dbProcess ifrit.Process
 var cliPath string
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	binPath, err := gexec.Build("github.com/ddadlani/voyager/cli")
+	binPath, err := gexec.Build("github.com/concourse/voyager/cli")
 	Expect(err).NotTo(HaveOccurred())
 
 	return []byte(binPath)

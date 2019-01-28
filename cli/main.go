@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	command "github.com/ddadlani/voyager/cli/command"
+	command "github.com/concourse/voyager/cli/command"
 	flags "github.com/jessevdk/go-flags"
 )
 

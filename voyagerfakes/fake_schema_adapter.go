@@ -5,7 +5,7 @@ import (
 	sql "database/sql"
 	sync "sync"
 
-	voyager "github.com/ddadlani/voyager"
+	voyager "github.com/concourse/voyager"
 )
 
 type FakeSchemaAdapter struct {

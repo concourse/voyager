@@ -10,8 +10,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ddadlani/voyager"
-	"github.com/ddadlani/voyager/migrations"
+	"github.com/concourse/voyager"
+	"github.com/concourse/voyager/migrations"
 	"github.com/gobuffalo/packr"
 )
 
