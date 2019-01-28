@@ -1,9 +1,10 @@
 package integration_test
 
 import (
-	"github.com/onsi/gomega/gexec"
 	"os"
 	"time"
+
+	"github.com/onsi/gomega/gexec"
 
 	"github.com/ddadlani/voyager/helpers"
 	. "github.com/onsi/ginkgo"
@@ -23,29 +24,25 @@ var dbProcess ifrit.Process
 var cliPath string
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	postgresRunner = helpers.Runner{
-		Port: 5433 + GinkgoParallelNode(),
-	}
-
-	dbProcess = ifrit.Invoke(postgresRunner)
-
 	binPath, err := gexec.Build("github.com/ddadlani/voyager/cli")
 	Expect(err).NotTo(HaveOccurred())
 
 	return []byte(binPath)
 }, func(data []byte) {
 	cliPath = string(data)
-
+	postgresRunner = helpers.Runner{
+		Port: 5433 + GinkgoParallelNode(),
+	}
+	dbProcess = ifrit.Invoke(postgresRunner)
 	SetDefaultEventuallyTimeout(10 * time.Second)
 })
 
 var _ = SynchronizedAfterSuite(func() {
-}, func() {
-	gexec.CleanupBuildArtifacts()
 	dbProcess.Signal(os.Interrupt)
 	Eventually(dbProcess.Wait(), 10*time.Second).Should(Receive())
+}, func() {
+	gexec.CleanupBuildArtifacts()
 })
-
 
 var _ = BeforeEach(func() {
 	postgresRunner.CreateTestDB()
@@ -54,4 +51,3 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	postgresRunner.DropTestDB()
 })
-
