@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/concourse/voyager/helpers"
+	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/gobuffalo/packr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,12 +21,14 @@ func TestVoyager(t *testing.T) {
 
 var postgresRunner helpers.Runner
 var dbProcess ifrit.Process
+var logger *lagertest.TestLogger
 
 var _ = BeforeSuite(func() {
 	postgresRunner = helpers.Runner{
 		Port: 5433 + GinkgoParallelNode(),
 	}
 	dbProcess = ifrit.Invoke(postgresRunner)
+	logger = lagertest.NewTestLogger("test")
 })
 
 var _ = BeforeEach(func() {

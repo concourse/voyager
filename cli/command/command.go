@@ -55,7 +55,7 @@ func (c *CurrentVersionCommand) Execute(args []string) error {
 		return err
 	}
 
-	migrator := voyager.NewMigrator(db, advisoryLockID, nil, nil, nil)
+	migrator := voyager.NewMigrator(nil, db, advisoryLockID, nil, nil, nil)
 
 	version, err := migrator.CurrentVersion()
 
@@ -106,7 +106,7 @@ func (c *MigrateCommand) Execute(args []string) error {
 	}
 
 	box := packr.NewBox(defaultMigrationDir)
-	migrator := voyager.NewMigrator(db, 0, source{box}, migrations.NewMigrationsRunner(db), nil)
+	migrator := voyager.NewMigrator(nil, db, 0, source{box}, migrations.NewMigrationsRunner(db), nil)
 
 	var toVersion int
 
