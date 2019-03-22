@@ -4,14 +4,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
 
 	"code.cloudfoundry.org/lager"
-	"github.com/concourse/voyager/runner"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	_ "github.com/lib/pq"
+
+	"github.com/concourse/voyager/runner"
 )
 
 type Migrator interface {
@@ -22,11 +24,16 @@ type Migrator interface {
 	Migrations() ([]migration, []int, error)
 }
 
-func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
+func NewMigrator(logger lager.Logger, db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
+	if logger == nil {
+		logger = lager.NewLogger("voyager")
+		logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
+	}
+
 	return &migrator{
+		logger,
 		db,
 		lockID,
-		lager.NewLogger("migrations"),
 		source,
 		migrationsRunner,
 		adapter,
@@ -35,9 +42,9 @@ func NewMigrator(db *sql.DB, lockID int, source Source, migrationsRunner runner.
 }
 
 type migrator struct {
+	logger             lager.Logger
 	db                 *sql.DB
 	lockID             int
-	logger             lager.Logger
 	source             Source
 	goMigrationsRunner runner.MigrationsRunner
 	adapter            SchemaAdapter
