@@ -25,7 +25,7 @@ var cliPath string
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	binPath, err := gexec.Build("github.com/concourse/voyager/cli")
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	return []byte(binPath)
 }, func(data []byte) {

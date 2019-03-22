@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"io/ioutil"
 	"math/rand"
-	"strings"
 	"sync"
 	"time"
 
@@ -29,7 +28,7 @@ var _ = Describe("Voyager Migration", func() {
 
 	BeforeEach(func() {
 		db, err = sql.Open("postgres", postgresRunner.DataSourceName())
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		source = new(voyagerfakes.FakeSource)
 		source.AssetStub = asset
@@ -49,7 +48,7 @@ var _ = Describe("Voyager Migration", func() {
 		It("Runs all the migrations", func() {
 			migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 			err := migrator.Up()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -62,7 +61,7 @@ var _ = Describe("Voyager Migration", func() {
 			It("reports the current version stored in the database", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				version, err := migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(version).To(Equal(2000))
 			})
 		})
@@ -70,9 +69,9 @@ var _ = Describe("Voyager Migration", func() {
 		Context("when the latest migration was a down migration", func() {
 			BeforeEach(func() {
 				_, err = db.Exec(`INSERT INTO migrations_history(version, tstamp, direction, status, dirty) VALUES($1, current_timestamp, 'up', 'passed', false)`, 3000)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				_, err = db.Exec(`INSERT INTO migrations_history(version, tstamp, direction, status, dirty) VALUES($1, current_timestamp, 'up', 'passed', false)`, 4000)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				_, err = db.Exec(`INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, 'down', 'passed', false)`, 4000)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -81,7 +80,7 @@ var _ = Describe("Voyager Migration", func() {
 
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				version, err := migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(version).To(Equal(3000))
 			})
 		})
@@ -108,7 +107,7 @@ var _ = Describe("Voyager Migration", func() {
 			It("reports the version before the failed migration", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				version, err := migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(version).To(Equal(2000))
 			})
 		})
@@ -129,14 +128,14 @@ var _ = Describe("Voyager Migration", func() {
 		It("SupportedVersion reports the highest supported migration version", func() {
 			migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 			version, err := migrator.SupportedVersion()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(version).To(Equal(20000))
 		})
 
 		It("Ignores files it can't parse", func() {
 			migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 			version, err := migrator.SupportedVersion()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(version).To(Equal(20000))
 		})
 	})
@@ -162,7 +161,7 @@ var _ = Describe("Voyager Migration", func() {
 				startTime := time.Now()
 
 				err = migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				var (
 					version   int
@@ -186,14 +185,15 @@ var _ = Describe("Voyager Migration", func() {
 
 					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Up()
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 
 					var timeStamp pq.NullTime
 					rows, err := db.Query("SELECT tstamp FROM migrations_history WHERE version=8878")
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					var numRows = 0
 					for rows.Next() {
 						err = rows.Scan(&timeStamp)
+						Expect(err).ToNot(HaveOccurred())
 						numRows++
 					}
 					Expect(numRows).To(Equal(1))
@@ -205,7 +205,7 @@ var _ = Describe("Voyager Migration", func() {
 				It("returns an error and doesn't perform any migration", func() {
 					migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Migrate(1000)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 
 					err = migrator.Migrate(20000)
 					Expect(err).To(HaveOccurred())
@@ -213,10 +213,11 @@ var _ = Describe("Voyager Migration", func() {
 
 					var timeStamp pq.NullTime
 					rows, err := db.Query("SELECT tstamp FROM migrations_history WHERE version=1000")
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					var numRows = 0
 					for rows.Next() {
 						err = rows.Scan(&timeStamp)
+						Expect(err).ToNot(HaveOccurred())
 						numRows++
 					}
 					Expect(numRows).To(Equal(1))
@@ -242,16 +243,16 @@ var _ = Describe("Voyager Migration", func() {
 			It("runs a migration", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				migrations, _, err := migrator.Migrations()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(len(migrations)).To(Equal(1))
 
 				err = migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating the table in the database")
 				var exists string
 				err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.tables where table_name = 'some_table')").Scan(&exists)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(Equal("true"))
 
 				By("Updating the migrations_history table")
@@ -262,12 +263,12 @@ var _ = Describe("Voyager Migration", func() {
 				SetupMigrationsHistoryTableToExistAtVersion(db, 1000, false)
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Not creating the database referenced in the migration")
 				var exists string
 				err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.tables where table_name = 'some_table')").Scan(&exists)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(Equal("false"))
 			})
 
@@ -299,7 +300,7 @@ var _ = Describe("Voyager Migration", func() {
 
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 			})
 
@@ -335,7 +336,7 @@ var _ = Describe("Voyager Migration", func() {
 
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err = migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				ExpectDatabaseMigrationVersionToEqual(migrator, 1000)
 
@@ -404,7 +405,7 @@ var _ = Describe("Voyager Migration", func() {
 					startTime := time.Now()
 					migrator := voyager.NewMigrator(db, lockID, source, runner, nil)
 					err = migrator.Up()
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 
 					var (
 						version   int
@@ -470,18 +471,19 @@ var _ = Describe("Voyager Migration", func() {
 
 				By("applying the initial migration")
 				err := migrator.Migrate(1000)
+				Expect(err).ToNot(HaveOccurred())
 				var columnExists string
 				err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns where table_name = 'some_table' AND column_name = 'name')").Scan(&columnExists)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(columnExists).To(Equal("false"))
 
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err = migrator.Migrate(4000)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				By("applying the go migration")
 				err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns where table_name = 'some_table' AND column_name='name')").Scan(&columnExists)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(columnExists).To(Equal("true"))
 
 				By("updating the migrations history table")
@@ -498,12 +500,12 @@ var _ = Describe("Voyager Migration", func() {
 
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				By("applying the migration")
 				var columnExists string
 				err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns where table_name = 'some_table' AND column_name = 'name')").Scan(&columnExists)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(columnExists).To(Equal("true"))
 
 				By("updating the schema migrations table")
@@ -526,17 +528,17 @@ var _ = Describe("Voyager Migration", func() {
 			It("Downgrades to a given version", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				currentVersion, err := migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(currentVersion).To(Equal(2000))
 
 				err = migrator.Migrate(1000)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				currentVersion, err = migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(currentVersion).To(Equal(1000))
 
 				ExpectToBeAbleToInsertData(db)
@@ -545,17 +547,17 @@ var _ = Describe("Voyager Migration", func() {
 			It("Doesn't fail if already at the requested version", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Migrate(2000)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				currentVersion, err := migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(currentVersion).To(Equal(2000))
 
 				err = migrator.Migrate(2000)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				currentVersion, err = migrator.CurrentVersion()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(currentVersion).To(Equal(2000))
 
 				ExpectToBeAbleToInsertData(db)
@@ -564,7 +566,7 @@ var _ = Describe("Voyager Migration", func() {
 			It("Locks the database so multiple consumers don't run downgrade at the same time", func() {
 				migrator = voyager.NewMigrator(db, lockID, source, runner, nil)
 				err := migrator.Up()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				var wg sync.WaitGroup
 				wg.Add(3)
@@ -626,22 +628,22 @@ var _ = Describe("Voyager Migration", func() {
 				It("populates old schema table with corresponding first version from migrations_history table", func() {
 					migrator = voyager.NewMigrator(db, lockID, source, runner, fakeAdapter)
 					err = migrator.Up()
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 
 					var newSchemaExists bool
 					err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='migrations_history')").Scan(&newSchemaExists)
 					Expect(newSchemaExists).To(BeTrue())
 
 					err = migrator.Migrate(1000)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 
 					err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='migrations_history')").Scan(&newSchemaExists)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(newSchemaExists).To(BeTrue())
 
 					var oldSchemaCreated bool
 					err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='old_schema')").Scan(&oldSchemaCreated)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(oldSchemaCreated).To(BeTrue())
 					ExpectDatabaseVersionToEqual(db, 3456, "old_schema")
 				})
@@ -656,7 +658,7 @@ func TryRunUpAndVerifyResult(db *sql.DB, migrator voyager.Migrator, wg *sync.Wai
 	defer wg.Done()
 
 	err := migrator.Up()
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	ExpectDatabaseMigrationVersionToEqual(migrator, 1000)
 	ExpectToBeAbleToInsertData(db)
@@ -667,7 +669,7 @@ func TryRunMigrateAndVerifyResult(db *sql.DB, migrator voyager.Migrator, version
 	defer wg.Done()
 
 	err := migrator.Migrate(version)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	ExpectDatabaseMigrationVersionToEqual(migrator, version)
 
@@ -676,33 +678,23 @@ func TryRunMigrateAndVerifyResult(db *sql.DB, migrator voyager.Migrator, version
 
 func SetupMigrationsHistoryTableToExistAtVersion(db *sql.DB, version int, dirty bool) {
 	_, err := db.Exec(`CREATE TABLE migrations_history(version bigint, tstamp timestamp with time zone, direction varchar, status varchar, dirty boolean)`)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	_, err = db.Exec(`INSERT INTO migrations_history(version, tstamp, direction, status, dirty) VALUES($1, current_timestamp, 'up', 'passed', $2)`, version, dirty)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func SetupOldDatabaseSchema(db *sql.DB, version int, dirty bool) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS old_schema (version bigint, dirty boolean)")
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	_, err = db.Exec("INSERT INTO old_schema (version, dirty) VALUES ($1, $2)", version, dirty)
-	Expect(err).NotTo(HaveOccurred())
-}
-
-func SetupSchemaFromFile(db *sql.DB, path string) {
-	migrations, err := ioutil.ReadFile(path)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, migration := range strings.Split(string(migrations), ";") {
-		_, err = db.Exec(migration)
-		Expect(err).NotTo(HaveOccurred())
-	}
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func ExpectDatabaseMigrationVersionToEqual(migrator voyager.Migrator, expectedVersion int) {
 	var dbVersion int
 	dbVersion, err := migrator.CurrentVersion()
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	Expect(dbVersion).To(Equal(expectedVersion))
 }
 
@@ -711,29 +703,22 @@ func ExpectToBeAbleToInsertData(dbConn *sql.DB) {
 
 	teamID := rand.Intn(10000)
 	_, err := dbConn.Exec("INSERT INTO some_table(id, tstamp) VALUES ($1, current_timestamp)", teamID)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func ExpectMigrationToHaveFailed(dbConn *sql.DB, failedVersion int, expectDirty bool) {
 	var status string
 	var dirty bool
 	err := dbConn.QueryRow("SELECT status, dirty FROM migrations_history WHERE version=$1 ORDER BY tstamp desc LIMIT 1", failedVersion).Scan(&status, &dirty)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	Expect(status).To(Equal("failed"))
 	Expect(dirty).To(Equal(expectDirty))
-}
-
-func ExpectMigrationVersionTableNotToExist(dbConn *sql.DB) {
-	var exists string
-	err := dbConn.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.tables where table_name = 'migration_version')").Scan(&exists)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(exists).To(Equal("false"))
 }
 
 func ExpectDatabaseVersionToEqual(db *sql.DB, version int, table string) {
 	var dbVersion int
 	query := "SELECT version from " + table + " LIMIT 1"
 	err := db.QueryRow(query).Scan(&dbVersion)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 	Expect(dbVersion).To(Equal(version))
 }

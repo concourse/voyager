@@ -27,7 +27,7 @@ var _ = Describe("Migration CLI", func() {
 
 	BeforeEach(func() {
 		db, err = sql.Open("postgres", postgresRunner.DataSourceName())
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 	})
 
@@ -54,7 +54,7 @@ var _ = Describe("Migration CLI", func() {
 
 				cmd := exec.Command(cliPath, "generate", "-d", migrationDir, "-n", migrationName, "-t", "sql")
 				session, err := gexec.Start(cmd, nil, nil)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				sqlMigrationPattern := "^(\\d+)_(.*).(down|up).sql$"
 
@@ -71,7 +71,7 @@ var _ = Describe("Migration CLI", func() {
 			It("generates up and down migration files", func() {
 				cmd := exec.Command(cliPath, "generate", "-d", migrationDir, "-n", migrationName, "-t", "go")
 				session, err := gexec.Start(cmd, nil, nil)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				goMigrationPattern := "^(\\d+)_(.*).(down|up).go$"
 
@@ -100,7 +100,7 @@ var _ = Describe("Migration CLI", func() {
 
 			cmd := exec.Command(cliPath, "current-version", "--connection-string", postgresRunner.DataSourceName())
 			session, err := gexec.Start(cmd, nil, nil)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(0))
 			Expect(session.Out).To(gbytes.Say("Last successfully applied migration: 12345"))
@@ -113,7 +113,7 @@ var _ = Describe("Migration CLI", func() {
 				cmd := exec.Command(cliPath, "migrate", "-v", "20000", "--connection-string", postgresRunner.DataSourceName())
 
 				session, err := gexec.Start(cmd, nil, nil)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(session).Should(gexec.Exit(1))
 				Expect(session.Err).To(gbytes.Say("an error occurred while running migrations"))
@@ -124,7 +124,7 @@ var _ = Describe("Migration CLI", func() {
 				cmd := exec.Command(cliPath, "migrate", "-v", "2000", "--connection-string", postgresRunner.DataSourceName())
 
 				session, err := gexec.Start(cmd, nil, nil)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(session).Should(gexec.Exit(0))
 				Expect(session.Out).To(gbytes.Say("Successfully migrated to version 2000"))
@@ -134,7 +134,7 @@ var _ = Describe("Migration CLI", func() {
 				cmd := exec.Command(cliPath, "migrate", "-v", "latest", "--connection-string", postgresRunner.DataSourceName())
 
 				session, err := gexec.Start(cmd, nil, nil)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(session).Should(gexec.Exit(0))
 				Expect(session.Out).To(gbytes.Say("Successfully migrated to version latest"))
@@ -147,10 +147,10 @@ var _ = Describe("Migration CLI", func() {
 //TODO: move to helpers
 func setupMigrationsHistoryTableToExistAtVersion(db *sql.DB, version int, dirty bool) {
 	_, err := db.Exec(`CREATE TABLE migrations_history(version bigint, tstamp timestamp with time zone, direction varchar, status varchar, dirty boolean)`)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	_, err = db.Exec(`INSERT INTO migrations_history(version, tstamp, direction, status, dirty) VALUES($1, current_timestamp, 'up', 'passed', $2)`, version, dirty)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func expectGeneratedFilesToMatchSpecification(migrationDir, fileNamePattern, migrationName string,
@@ -171,6 +171,7 @@ func expectGeneratedFilesToMatchSpecification(migrationDir, fileNamePattern, mig
 
 			filePath := path.Join(migrationDir, migrationFileName)
 			info, err := os.Stat(filePath)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(uint32(info.Mode())).To(Equal(uint32(0644)))
 			fileContents, err := ioutil.ReadFile(filePath)
 			Expect(err).ToNot(HaveOccurred())

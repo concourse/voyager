@@ -26,36 +26,36 @@ func (runner Runner) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 	pgBase := filepath.Join(os.TempDir(), "test-pg-runner")
 
 	err := os.MkdirAll(pgBase, 0755)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	tmpdir, err := ioutil.TempDir(pgBase, "postgres")
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	currentUser, err := user.Current()
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	initdbPath, err := exec.LookPath("initdb")
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	postgresPath, err := exec.LookPath("postgres")
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	initCmd := exec.Command(initdbPath, "-U", "postgres", "-D", tmpdir, "-E", "UTF8", "--no-local")
 	startCmd := exec.Command(postgresPath, "-k", "/tmp", "-D", tmpdir, "-h", "127.0.0.1", "-p", strconv.Itoa(runner.Port))
 
 	if currentUser.Uid == "0" {
 		pgUser, err := user.Lookup("postgres")
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		var uid, gid uint32
 		_, err = fmt.Sscanf(pgUser.Uid, "%d", &uid)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		_, err = fmt.Sscanf(pgUser.Gid, "%d", &gid)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		err = os.Chown(tmpdir, int(uid), int(gid))
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		credential := &syscall.Credential{Uid: uid, Gid: gid}
 
@@ -71,7 +71,7 @@ func (runner Runner) Run(signals <-chan os.Signal, ready chan<- struct{}) error 
 		gexec.NewPrefixedWriter("[o][initdb] ", GinkgoWriter),
 		gexec.NewPrefixedWriter("[e][initdb] ", GinkgoWriter),
 	)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	<-session.Exited
 
@@ -98,7 +98,7 @@ func (runner *Runner) CreateTestDB() {
 	createdb := exec.Command("createdb", "-h", "/tmp", "-U", "postgres", "-p", strconv.Itoa(runner.Port), "testdb")
 
 	createS, err := gexec.Start(createdb, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	<-createS.Exited
 
@@ -107,7 +107,7 @@ func (runner *Runner) CreateTestDB() {
 
 		createdb := exec.Command("createdb", "-h", "/tmp", "-U", "postgres", "-p", strconv.Itoa(runner.Port), "testdb")
 		createS, err = gexec.Start(createdb, GinkgoWriter, GinkgoWriter)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	<-createS.Exited
@@ -118,7 +118,7 @@ func (runner *Runner) CreateTestDB() {
 func (runner *Runner) DropTestDB() {
 	dropdb := exec.Command("dropdb", "-h", "/tmp", "-U", "postgres", "-p", strconv.Itoa(runner.Port), "testdb")
 	dropS, err := gexec.Start(dropdb, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	<-dropS.Exited
 

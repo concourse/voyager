@@ -70,6 +70,13 @@ func (m *migrator) CurrentVersion() (int, error) {
 
 	var migrationHistoryExists bool
 	err := m.db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables where table_name='migrations_history')").Scan(&migrationHistoryExists)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return -1, err
+	}
+
 	if !migrationHistoryExists && m.adapter != nil {
 		return m.adapter.OldSchemaLastVersion(), nil
 	}
@@ -106,7 +113,8 @@ func (m *migrator) Migrate(toVersion int) error {
 	}
 
 	if acquired {
-		defer m.releaseLock()
+		//TODO: Add log line here once logging is added
+		defer func() { _, _ = m.releaseLock() }()
 	}
 
 	var existingDBVersion int
@@ -125,6 +133,9 @@ func (m *migrator) Migrate(toVersion int) error {
 	if existingDBVersion > 0 {
 		var containsOldMigrationInfo bool
 		err = m.db.QueryRow("SELECT EXISTS (SELECT 1 FROM migrations_history where version=$1)", existingDBVersion).Scan(&containsOldMigrationInfo)
+		if err != nil {
+			return err
+		}
 
 		if !containsOldMigrationInfo {
 			_, err = m.db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, 'up', 'passed', false)", existingDBVersion)
@@ -223,10 +234,19 @@ func (m *migrator) runMigration(migration migration) error {
 		}
 	case SQLTransaction:
 		tx, err := m.db.Begin()
+		if err != nil {
+			return m.recordMigrationFailure(migration, err, false)
+		}
+
 		for _, statement := range migration.Statements {
 			_, err = tx.Exec(statement)
 			if err != nil {
-				tx.Rollback()
+				rollbackErr := tx.Rollback()
+				if rollbackErr != nil {
+					err = multierror.Append(fmt.Errorf("Transaction %v failed, failed to roll back the migration", statement), rollbackErr)
+					return m.recordMigrationFailure(migration, err, false)
+				}
+
 				err = multierror.Append(fmt.Errorf("Transaction %v failed, rolled back the migration", statement), err)
 				if err != nil {
 					return m.recordMigrationFailure(migration, err, false)
@@ -234,6 +254,9 @@ func (m *migrator) runMigration(migration migration) error {
 			}
 		}
 		err = tx.Commit()
+		if err != nil {
+			return m.recordMigrationFailure(migration, err, true)
+		}
 	case SQLNoTransaction:
 		for _, statement := range migration.Statements {
 			_, err = m.db.Exec(statement)
@@ -317,8 +340,6 @@ func (m *migrator) releaseLock() (bool, error) {
 		time.Sleep(1 * time.Second)
 	}
 }
-
-type filenames []string
 
 func sortMigrations(migrationList []migration) {
 	sort.Slice(migrationList, func(i, j int) bool {
