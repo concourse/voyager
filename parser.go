@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-var noTxPrefix = regexp.MustCompile("^\\s*--\\s+(NO_TRANSACTION)")
-var migrationDirection = regexp.MustCompile("\\.(up|down)\\.")
-var goMigrationFuncName = regexp.MustCompile("(Up|Down)_[0-9]*")
+var noTxPrefix = regexp.MustCompile(`^\s*--\s+(NO_TRANSACTION)`)
+var migrationDirection = regexp.MustCompile(`\.(up|down)\.`)
+var goMigrationFuncName = regexp.MustCompile(`(Up|Down)_[0-9]*`)
 
 var ErrCouldNotParseDirection = errors.New("could not parse direction for migration")
 
@@ -73,7 +73,7 @@ func (p *Parser) ParseFileToMigration(migrationName string) (migration, error) {
 }
 
 func schemaVersion(assetName string) (int, error) {
-	regex := regexp.MustCompile("(\\d+)")
+	regex := regexp.MustCompile(`(\d+)`)
 	match := regex.FindStringSubmatch(assetName)
 	return strconv.Atoi(match[1])
 }

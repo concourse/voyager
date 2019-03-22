@@ -2,13 +2,11 @@ package migrations
 
 import (
 	"fmt"
-	"time"
 )
 
 func (m *TestGoMigrationsRunner) Up_4000() error {
 	type info struct {
-		id     int
-		tstamp time.Time
+		id int
 	}
 
 	tx, err := m.DB.Begin()
@@ -16,7 +14,7 @@ func (m *TestGoMigrationsRunner) Up_4000() error {
 		return err
 	}
 
-	defer tx.Commit()
+	defer func() { _ = tx.Commit() }()
 
 	_, err = tx.Exec("ALTER TABLE some_table ADD COLUMN name VARCHAR, ADD COLUMN metadata VARCHAR")
 	if err != nil {
@@ -41,7 +39,10 @@ func (m *TestGoMigrationsRunner) Up_4000() error {
 
 	for _, info := range infos {
 		name := fmt.Sprintf("name_%v", info.id)
-		tx.Exec(`UPDATE some_table SET name=$1, metadata=$2 WHERE id=$3`, name, m.metadata, info.id)
+		_, err = tx.Exec(`UPDATE some_table SET name=$1, metadata=$2 WHERE id=$3`, name, m.metadata, info.id)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
