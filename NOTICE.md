@@ -1,4 +1,6 @@
-Copyright 2018-2019 Pivotal Software, Inc.
+VOYAGER
+
+Copyright 2018-Present Pivotal Software, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this file except in compliance with the License. You may obtain a copy of the
