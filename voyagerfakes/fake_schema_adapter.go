@@ -2,17 +2,18 @@
 package voyagerfakes
 
 import (
-	sql "database/sql"
-	sync "sync"
+	"database/sql"
+	"sync"
 
-	voyager "github.com/concourse/voyager"
+	"github.com/concourse/voyager"
 )
 
 type FakeSchemaAdapter struct {
-	MigrateFromOldSchemaStub        func(*sql.DB) (int, error)
+	MigrateFromOldSchemaStub        func(*sql.DB, int) (int, error)
 	migrateFromOldSchemaMutex       sync.RWMutex
 	migrateFromOldSchemaArgsForCall []struct {
 		arg1 *sql.DB
+		arg2 int
 	}
 	migrateFromOldSchemaReturns struct {
 		result1 int
@@ -48,16 +49,17 @@ type FakeSchemaAdapter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeSchemaAdapter) MigrateFromOldSchema(arg1 *sql.DB) (int, error) {
+func (fake *FakeSchemaAdapter) MigrateFromOldSchema(arg1 *sql.DB, arg2 int) (int, error) {
 	fake.migrateFromOldSchemaMutex.Lock()
 	ret, specificReturn := fake.migrateFromOldSchemaReturnsOnCall[len(fake.migrateFromOldSchemaArgsForCall)]
 	fake.migrateFromOldSchemaArgsForCall = append(fake.migrateFromOldSchemaArgsForCall, struct {
 		arg1 *sql.DB
-	}{arg1})
-	fake.recordInvocation("MigrateFromOldSchema", []interface{}{arg1})
+		arg2 int
+	}{arg1, arg2})
+	fake.recordInvocation("MigrateFromOldSchema", []interface{}{arg1, arg2})
 	fake.migrateFromOldSchemaMutex.Unlock()
 	if fake.MigrateFromOldSchemaStub != nil {
-		return fake.MigrateFromOldSchemaStub(arg1)
+		return fake.MigrateFromOldSchemaStub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -72,17 +74,17 @@ func (fake *FakeSchemaAdapter) MigrateFromOldSchemaCallCount() int {
 	return len(fake.migrateFromOldSchemaArgsForCall)
 }
 
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaCalls(stub func(*sql.DB) (int, error)) {
+func (fake *FakeSchemaAdapter) MigrateFromOldSchemaCalls(stub func(*sql.DB, int) (int, error)) {
 	fake.migrateFromOldSchemaMutex.Lock()
 	defer fake.migrateFromOldSchemaMutex.Unlock()
 	fake.MigrateFromOldSchemaStub = stub
 }
 
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaArgsForCall(i int) *sql.DB {
+func (fake *FakeSchemaAdapter) MigrateFromOldSchemaArgsForCall(i int) (*sql.DB, int) {
 	fake.migrateFromOldSchemaMutex.RLock()
 	defer fake.migrateFromOldSchemaMutex.RUnlock()
 	argsForCall := fake.migrateFromOldSchemaArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeSchemaAdapter) MigrateFromOldSchemaReturns(result1 int, result2 error) {

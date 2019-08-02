@@ -17,14 +17,14 @@ import (
 )
 
 type Migrator interface {
-	CurrentVersion() (int, error)
+	CurrentVersion(db *sql.DB) (int, error)
 	SupportedVersion() (int, error)
-	Migrate(version int) error
-	Up() error
+	Migrate(db *sql.DB, version int) error
+	Up(db *sql.DB) error
 	Migrations() ([]migration, []int, error)
 }
 
-func NewMigrator(logger lager.Logger, db *sql.DB, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
+func NewMigrator(logger lager.Logger, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
 	if logger == nil {
 		logger = lager.NewLogger("voyager")
 		logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
@@ -32,7 +32,6 @@ func NewMigrator(logger lager.Logger, db *sql.DB, lockID int, source Source, mig
 
 	return &migrator{
 		logger,
-		db,
 		lockID,
 		source,
 		migrationsRunner,
@@ -43,7 +42,6 @@ func NewMigrator(logger lager.Logger, db *sql.DB, lockID int, source Source, mig
 
 type migrator struct {
 	logger             lager.Logger
-	db                 *sql.DB
 	lockID             int
 	source             Source
 	goMigrationsRunner runner.MigrationsRunner
@@ -53,7 +51,7 @@ type migrator struct {
 
 //go:generate counterfeiter . SchemaAdapter
 type SchemaAdapter interface {
-	MigrateFromOldSchema(*sql.DB) (int, error)
+	MigrateFromOldSchema(*sql.DB, int) (int, error)
 	MigrateToOldSchema(*sql.DB, int) error
 	OldSchemaLastVersion() int
 }
@@ -73,10 +71,9 @@ func (m *migrator) SupportedVersion() (int, error) {
 	return matches[len(matches)-1].Version, nil
 }
 
-func (m *migrator) CurrentVersion() (int, error) {
-
+func (m *migrator) CurrentVersion(db *sql.DB) (int, error) {
 	var migrationHistoryExists bool
-	err := m.db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables where table_name='migrations_history')").Scan(&migrationHistoryExists)
+	err := db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables where table_name='migrations_history')").Scan(&migrationHistoryExists)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
@@ -91,7 +88,7 @@ func (m *migrator) CurrentVersion() (int, error) {
 	var currentVersion int
 	var direction string
 	var dirty bool
-	err = m.db.QueryRow("SELECT version, direction, dirty FROM migrations_history WHERE status!='failed' ORDER BY tstamp DESC LIMIT 1").Scan(&currentVersion, &direction, &dirty)
+	err = db.QueryRow("SELECT version, direction, dirty FROM migrations_history WHERE status!='failed' ORDER BY tstamp DESC LIMIT 1").Scan(&currentVersion, &direction, &dirty)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
@@ -104,7 +101,7 @@ func (m *migrator) CurrentVersion() (int, error) {
 	}
 
 	for direction == "down" {
-		err := m.db.QueryRow("SELECT version, direction FROM migrations_history WHERE status!='failed' AND version < $1 ORDER BY tstamp DESC LIMIT 1", currentVersion).Scan(&currentVersion, &direction)
+		err := db.QueryRow("SELECT version, direction FROM migrations_history WHERE status!='failed' AND version < $1 ORDER BY tstamp DESC LIMIT 1", currentVersion).Scan(&currentVersion, &direction)
 		if err != nil {
 			return -1, multierror.Append(errors.New("could not determine current migration version"), err)
 		}
@@ -112,47 +109,47 @@ func (m *migrator) CurrentVersion() (int, error) {
 	return currentVersion, nil
 }
 
-func (m *migrator) Migrate(toVersion int) error {
+func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
 
-	acquired, err := m.acquireLock()
+	acquired, err := m.acquireLock(db)
 	if err != nil {
 		return err
 	}
 
 	if acquired {
 		//TODO: Add log line here once logging is added
-		defer func() { _, _ = m.releaseLock() }()
+		defer func() { _, _ = m.releaseLock(db) }()
 	}
 
 	var existingDBVersion int
 	if m.adapter != nil {
-		existingDBVersion, err = m.adapter.MigrateFromOldSchema(m.db)
+		existingDBVersion, err = m.adapter.MigrateFromOldSchema(db, toVersion)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = m.db.Exec("CREATE TABLE IF NOT EXISTS migrations_history (version bigint, tstamp timestamp with time zone, direction varchar, status varchar, dirty boolean)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS migrations_history (version bigint, tstamp timestamp with time zone, direction varchar, status varchar, dirty boolean)")
 	if err != nil {
 		return err
 	}
 
 	if existingDBVersion > 0 {
 		var containsOldMigrationInfo bool
-		err = m.db.QueryRow("SELECT EXISTS (SELECT 1 FROM migrations_history where version=$1)", existingDBVersion).Scan(&containsOldMigrationInfo)
+		err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM migrations_history where version=$1)", existingDBVersion).Scan(&containsOldMigrationInfo)
 		if err != nil {
 			return err
 		}
 
 		if !containsOldMigrationInfo {
-			_, err = m.db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, 'up', 'passed', false)", existingDBVersion)
+			_, err = db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, 'up', 'passed', false)", existingDBVersion)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	currentVersion, err := m.CurrentVersion()
+	currentVersion, err := m.CurrentVersion(db)
 	if err != nil {
 		return err
 	}
@@ -182,7 +179,7 @@ func (m *migrator) Migrate(toVersion int) error {
 	if currentVersion <= toVersion {
 		for _, migration := range migrations {
 			if currentVersion < migration.Version && migration.Version <= toVersion && migration.Direction == "up" {
-				err = m.runMigration(migration)
+				err = m.runMigration(db, migration)
 				if err != nil {
 					return err
 				}
@@ -191,7 +188,7 @@ func (m *migrator) Migrate(toVersion int) error {
 	} else {
 		for i := len(migrations) - 1; i >= 0; i-- {
 			if currentVersion >= migrations[i].Version && migrations[i].Version > toVersion && migrations[i].Direction == "down" {
-				err = m.runMigration(migrations[i])
+				err = m.runMigration(db, migrations[i])
 				if err != nil {
 					return err
 				}
@@ -200,7 +197,7 @@ func (m *migrator) Migrate(toVersion int) error {
 		}
 
 		if m.adapter != nil {
-			err = m.adapter.MigrateToOldSchema(m.db, toVersion)
+			err = m.adapter.MigrateToOldSchema(db, toVersion)
 			if err != nil {
 				return err
 			}
@@ -225,24 +222,24 @@ type migration struct {
 	Strategy   Strategy
 }
 
-func (m *migrator) recordMigrationFailure(migration migration, err error, dirty bool) error {
-	_, dbErr := m.db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, $2, 'failed', $3)", migration.Version, migration.Direction, dirty)
+func (m *migrator) recordMigrationFailure(db *sql.DB, migration migration, err error, dirty bool) error {
+	_, dbErr := db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, $2, 'failed', $3)", migration.Version, migration.Direction, dirty)
 	return multierror.Append(fmt.Errorf("Migration '%s' failed: %v", migration.Name, err), dbErr)
 }
 
-func (m *migrator) runMigration(migration migration) error {
+func (m *migrator) runMigration(db *sql.DB, migration migration) error {
 	var err error
 
 	switch migration.Strategy {
 	case GoMigration:
-		err = m.goMigrationsRunner.Run(migration.Name)
+		err = m.goMigrationsRunner.Run(db, migration.Name)
 		if err != nil {
-			return m.recordMigrationFailure(migration, err, false)
+			return m.recordMigrationFailure(db, migration, err, false)
 		}
 	case SQLTransaction:
-		tx, err := m.db.Begin()
+		tx, err := db.Begin()
 		if err != nil {
-			return m.recordMigrationFailure(migration, err, false)
+			return m.recordMigrationFailure(db, migration, err, false)
 		}
 
 		for _, statement := range migration.Statements {
@@ -251,29 +248,29 @@ func (m *migrator) runMigration(migration migration) error {
 				rollbackErr := tx.Rollback()
 				if rollbackErr != nil {
 					err = multierror.Append(fmt.Errorf("Transaction %v failed, failed to roll back the migration", statement), rollbackErr)
-					return m.recordMigrationFailure(migration, err, false)
+					return m.recordMigrationFailure(db, migration, err, false)
 				}
 
 				err = multierror.Append(fmt.Errorf("Transaction %v failed, rolled back the migration", statement), err)
 				if err != nil {
-					return m.recordMigrationFailure(migration, err, false)
+					return m.recordMigrationFailure(db, migration, err, false)
 				}
 			}
 		}
 		err = tx.Commit()
 		if err != nil {
-			return m.recordMigrationFailure(migration, err, true)
+			return m.recordMigrationFailure(db, migration, err, true)
 		}
 	case SQLNoTransaction:
 		for _, statement := range migration.Statements {
-			_, err = m.db.Exec(statement)
+			_, err = db.Exec(statement)
 			if err != nil {
-				return m.recordMigrationFailure(migration, err, true)
+				return m.recordMigrationFailure(db, migration, err, true)
 			}
 		}
 	}
 
-	_, err = m.db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, $2, 'passed', false)", migration.Version, migration.Direction)
+	_, err = db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, $2, 'passed', false)", migration.Version, migration.Direction)
 	return err
 }
 
@@ -297,19 +294,19 @@ func (m *migrator) Migrations() ([]migration, []int, error) {
 	return migrationList, versionList, nil
 }
 
-func (m *migrator) Up() error {
+func (m *migrator) Up(db *sql.DB) error {
 	_, versions, err := m.Migrations()
 	if err != nil {
 		return err
 	}
-	return m.Migrate(versions[len(versions)-1])
+	return m.Migrate(db, versions[len(versions)-1])
 }
 
-func (m *migrator) acquireLock() (bool, error) {
+func (m *migrator) acquireLock(db *sql.DB) (bool, error) {
 	var acquired bool
 	for {
 		m.Lock()
-		err := m.db.QueryRow(`SELECT pg_try_advisory_lock($1)`, m.lockID).Scan(&acquired)
+		err := db.QueryRow(`SELECT pg_try_advisory_lock($1)`, m.lockID).Scan(&acquired)
 
 		if err != nil {
 			m.Unlock()
@@ -326,12 +323,11 @@ func (m *migrator) acquireLock() (bool, error) {
 	}
 }
 
-func (m *migrator) releaseLock() (bool, error) {
-
+func (m *migrator) releaseLock(db *sql.DB) (bool, error) {
 	var released bool
 	for {
 		m.Lock()
-		err := m.db.QueryRow(`SELECT pg_advisory_unlock($1)`, m.lockID).Scan(&released)
+		err := db.QueryRow(`SELECT pg_advisory_unlock($1)`, m.lockID).Scan(&released)
 
 		if err != nil {
 			m.Unlock()
