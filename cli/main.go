@@ -4,7 +4,7 @@ import (
 	"os"
 
 	command "github.com/concourse/voyager/cli/command"
-	flags "github.com/jessevdk/go-flags"
+	"github.com/jessevdk/go-flags"
 )
 
 func main() {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"code.cloudfoundry.org/lager"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -49,15 +50,17 @@ type CurrentVersionCommand struct {
 }
 
 func (c *CurrentVersionCommand) Execute(args []string) error {
+	logger := lager.NewLogger("voyager")
+	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.INFO))
 
 	db, err := sql.Open("postgres", c.ConnectionString)
 	if err != nil {
 		return err
 	}
 
-	migrator := voyager.NewMigrator(nil, advisoryLockID, nil, nil, nil)
+	migrator := voyager.NewMigrator(advisoryLockID, nil, nil, nil)
 
-	version, err := migrator.CurrentVersion(db)
+	version, err := migrator.CurrentVersion(logger, db)
 
 	if err != nil {
 		return err
@@ -98,6 +101,8 @@ func (c *GenerateCommand) generateSQLMigration() error {
 }
 
 func (c *MigrateCommand) Execute(args []string) error {
+	logger := lager.NewLogger("voyager")
+	logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.INFO))
 
 	db, err := sql.Open("postgres", c.ConnectionString)
 
@@ -106,7 +111,7 @@ func (c *MigrateCommand) Execute(args []string) error {
 	}
 
 	box := packr.NewBox(defaultMigrationDir)
-	migrator := voyager.NewMigrator(nil, 0, source{box}, migrations.NewMigrationsRunner(), nil)
+	migrator := voyager.NewMigrator(0, source{box}, migrations.NewMigrationsRunner(), nil)
 
 	var toVersion int
 
@@ -119,7 +124,7 @@ func (c *MigrateCommand) Execute(args []string) error {
 		}
 	}
 
-	err = migrator.Migrate(db, toVersion)
+	err = migrator.Migrate(logger, db, toVersion)
 
 	if err != nil {
 		return fmt.Errorf("an error occurred while running migrations: %s", err.Error())

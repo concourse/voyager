@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -16,22 +15,40 @@ import (
 	"github.com/concourse/voyager/runner"
 )
 
+type Strategy int
+
+const (
+	GoMigration Strategy = iota
+	SQLTransaction
+	SQLNoTransaction
+)
+
+//go:generate counterfeiter . Migrator
+
 type Migrator interface {
-	CurrentVersion(db *sql.DB) (int, error)
-	SupportedVersion() (int, error)
-	Migrate(db *sql.DB, version int) error
-	Up(db *sql.DB) error
-	Migrations() ([]migration, []int, error)
+	CurrentVersion(lager.Logger, *sql.DB) (int, error)
+	SupportedVersion(lager.Logger) int
+	Migrate(lager.Logger, *sql.DB, int) error
+	Up(lager.Logger, *sql.DB) error
 }
 
-func NewMigrator(logger lager.Logger, lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
-	if logger == nil {
-		logger = lager.NewLogger("voyager")
-		logger.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
-	}
+//go:generate counterfeiter . SchemaAdapter
 
+type SchemaAdapter interface {
+	MigrateFromOldSchema(*sql.DB, int) (int, error)
+	MigrateToOldSchema(*sql.DB, int) error
+	OldSchemaLastVersion() int
+}
+
+//go:generate counterfeiter . Parser
+
+type Parser interface {
+	ParseMigrationFilename(lager.Logger, string) (Migration, error)
+	ParseFileToMigration(lager.Logger, string) (Migration, error)
+}
+
+func NewMigrator(lockID int, source Source, migrationsRunner runner.MigrationsRunner, adapter SchemaAdapter) Migrator {
 	return &migrator{
-		logger,
 		lockID,
 		source,
 		migrationsRunner,
@@ -41,7 +58,6 @@ func NewMigrator(logger lager.Logger, lockID int, source Source, migrationsRunne
 }
 
 type migrator struct {
-	logger             lager.Logger
 	lockID             int
 	source             Source
 	goMigrationsRunner runner.MigrationsRunner
@@ -49,39 +65,43 @@ type migrator struct {
 	*sync.Mutex
 }
 
-//go:generate counterfeiter . SchemaAdapter
-type SchemaAdapter interface {
-	MigrateFromOldSchema(*sql.DB, int) (int, error)
-	MigrateToOldSchema(*sql.DB, int) error
-	OldSchemaLastVersion() int
+type Migration struct {
+	Name       string
+	Version    int
+	Direction  string
+	Statements []string
+	Strategy   Strategy
 }
 
-func (m *migrator) SupportedVersion() (int, error) {
-	matches := []migration{}
+func (m *migrator) SupportedVersion(logger lager.Logger) int {
+	matches := []Migration{}
 
 	assets := m.source.AssetNames()
 
 	var parser = NewParser(m.source)
 	for _, match := range assets {
-		if migration, err := parser.ParseMigrationFilename(match); err == nil {
+		if migration, err := parser.ParseMigrationFilename(logger, match); err == nil {
 			matches = append(matches, migration)
 		}
 	}
 	sortMigrations(matches)
-	return matches[len(matches)-1].Version, nil
+	return matches[len(matches)-1].Version
 }
 
-func (m *migrator) CurrentVersion(db *sql.DB) (int, error) {
+func (m *migrator) CurrentVersion(logger lager.Logger, db *sql.DB) (int, error) {
+	logger.Session("current-version")
 	var migrationHistoryExists bool
 	err := db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables where table_name='migrations_history')").Scan(&migrationHistoryExists)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
 		}
+		logger.Error("failed-to-read-current-version", err)
 		return -1, err
 	}
 
 	if !migrationHistoryExists && m.adapter != nil {
+		logger.Info("migrations-history-schema-does-not-exist")
 		return m.adapter.OldSchemaLastVersion(), nil
 	}
 
@@ -93,10 +113,13 @@ func (m *migrator) CurrentVersion(db *sql.DB) (int, error) {
 		if err == sql.ErrNoRows {
 			return 0, nil
 		}
+		logger.Error("failed-to-read-current-version", err)
 		return -1, err
 	}
 
 	if dirty {
+
+		logger.Error("failed-to-read-current-version", err)
 		return -1, errors.New("could not determine current migration version. Database is in a dirty state")
 	}
 
@@ -109,15 +132,15 @@ func (m *migrator) CurrentVersion(db *sql.DB) (int, error) {
 	return currentVersion, nil
 }
 
-func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
-
+func (m *migrator) Migrate(logger lager.Logger, db *sql.DB, toVersion int) error {
+	logger.Debug("acquiring-migration-lock")
 	acquired, err := m.acquireLock(db)
 	if err != nil {
 		return err
 	}
 
 	if acquired {
-		//TODO: Add log line here once logging is added
+		logger.Debug("releasing-migration-lock")
 		defer func() { _, _ = m.releaseLock(db) }()
 	}
 
@@ -149,12 +172,12 @@ func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
 		}
 	}
 
-	currentVersion, err := m.CurrentVersion(db)
+	currentVersion, err := m.CurrentVersion(logger, db)
 	if err != nil {
 		return err
 	}
 
-	migrations, versions, err := m.Migrations()
+	migrations, versions, err := m.migrations(logger)
 	if err != nil {
 		return err
 	}
@@ -173,7 +196,9 @@ func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
 	}
 
 	if !isValidVersion {
-		return fmt.Errorf("could not find migration version %v. No changes were made", toVersion)
+		err := fmt.Errorf("could not find migration version %v. No changes were made", toVersion)
+		logger.Error("failed-to-migrate-to-version", err)
+		return err
 	}
 
 	if currentVersion <= toVersion {
@@ -181,6 +206,7 @@ func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
 			if currentVersion < migration.Version && migration.Version <= toVersion && migration.Direction == "up" {
 				err = m.runMigration(db, migration)
 				if err != nil {
+					logger.WithData(lager.Data{"migrationVersion": migration.Version}).Error("failed-to-run-up-migration", err)
 					return err
 				}
 			}
@@ -190,6 +216,7 @@ func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
 			if currentVersion >= migrations[i].Version && migrations[i].Version > toVersion && migrations[i].Direction == "down" {
 				err = m.runMigration(db, migrations[i])
 				if err != nil {
+					logger.WithData(lager.Data{"migrationVersion": migrations[i].Version}).Error("failed-to-run-down-migration", err)
 					return err
 				}
 
@@ -206,28 +233,12 @@ func (m *migrator) Migrate(db *sql.DB, toVersion int) error {
 	return nil
 }
 
-type Strategy int
-
-const (
-	GoMigration Strategy = iota
-	SQLTransaction
-	SQLNoTransaction
-)
-
-type migration struct {
-	Name       string
-	Version    int
-	Direction  string
-	Statements []string
-	Strategy   Strategy
-}
-
-func (m *migrator) recordMigrationFailure(db *sql.DB, migration migration, err error, dirty bool) error {
+func (m *migrator) recordMigrationFailure(db *sql.DB, migration Migration, err error, dirty bool) error {
 	_, dbErr := db.Exec("INSERT INTO migrations_history (version, tstamp, direction, status, dirty) VALUES ($1, current_timestamp, $2, 'failed', $3)", migration.Version, migration.Direction, dirty)
 	return multierror.Append(fmt.Errorf("Migration '%s' failed: %v", migration.Name, err), dbErr)
 }
 
-func (m *migrator) runMigration(db *sql.DB, migration migration) error {
+func (m *migrator) runMigration(db *sql.DB, migration Migration) error {
 	var err error
 
 	switch migration.Strategy {
@@ -274,13 +285,13 @@ func (m *migrator) runMigration(db *sql.DB, migration migration) error {
 	return err
 }
 
-func (m *migrator) Migrations() ([]migration, []int, error) {
-	migrationList := []migration{}
+func (m *migrator) migrations(logger lager.Logger) ([]Migration, []int, error) {
+	migrationList := []Migration{}
 	versionList := []int{}
 	assets := m.source.AssetNames()
 	var parser = NewParser(m.source)
 	for _, assetName := range assets {
-		parsedMigration, err := parser.ParseFileToMigration(assetName)
+		parsedMigration, err := parser.ParseFileToMigration(logger, assetName)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -294,12 +305,12 @@ func (m *migrator) Migrations() ([]migration, []int, error) {
 	return migrationList, versionList, nil
 }
 
-func (m *migrator) Up(db *sql.DB) error {
-	_, versions, err := m.Migrations()
+func (m *migrator) Up(logger lager.Logger, db *sql.DB) error {
+	_, versions, err := m.migrations(logger)
 	if err != nil {
 		return err
 	}
-	return m.Migrate(db, versions[len(versions)-1])
+	return m.Migrate(logger, db, versions[len(versions)-1])
 }
 
 func (m *migrator) acquireLock(db *sql.DB) (bool, error) {
@@ -344,7 +355,7 @@ func (m *migrator) releaseLock(db *sql.DB) (bool, error) {
 	}
 }
 
-func sortMigrations(migrationList []migration) {
+func sortMigrations(migrationList []Migration) {
 	sort.Slice(migrationList, func(i, j int) bool {
 		return migrationList[i].Version < migrationList[j].Version
 	})

@@ -1,6 +1,7 @@
 package voyager_test
 
 import (
+	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/concourse/voyager"
 	"github.com/concourse/voyager/voyagerfakes"
 	. "github.com/onsi/ginkgo"
@@ -34,38 +35,42 @@ BEGIN;
 
 var _ = Describe("Parser", func() {
 	var (
-		parser  *voyager.Parser
+		parser  voyager.Parser
 		bindata *voyagerfakes.FakeSource
+		logger  *lagertest.TestLogger
 	)
 
 	BeforeEach(func() {
+		logger = lagertest.NewTestLogger("test")
+
 		bindata = new(voyagerfakes.FakeSource)
 		bindata.AssetReturns([]byte{}, nil)
 
 		parser = voyager.NewParser(bindata)
 	})
+
 	It("parses the direction of the migration from the file name", func() {
-		downMigration, err := parser.ParseFileToMigration("2000_some_migration.down.go")
+		downMigration, err := parser.ParseFileToMigration(logger, "2000_some_migration.down.go")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(downMigration.Direction).To(Equal("down"))
 
-		upMigration, err := parser.ParseFileToMigration("1000_some_migration.up.sql")
+		upMigration, err := parser.ParseFileToMigration(logger, "1000_some_migration.up.sql")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(upMigration.Direction).To(Equal("up"))
 	})
 
 	It("parses the strategy of the migration from the file", func() {
-		downMigration, err := parser.ParseFileToMigration("2000_some_migration.down.go")
+		downMigration, err := parser.ParseFileToMigration(logger, "2000_some_migration.down.go")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(downMigration.Strategy).To(Equal(voyager.GoMigration))
 
 		bindata.AssetReturns(basicSQLMigration, nil)
-		upMigration, err := parser.ParseFileToMigration("1000_some_migration.up.sql")
+		upMigration, err := parser.ParseFileToMigration(logger, "1000_some_migration.up.sql")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(upMigration.Strategy).To(Equal(voyager.SQLTransaction))
 
 		bindata.AssetReturns(noTransactionMigration, nil)
-		upNoTxMigration, err := parser.ParseFileToMigration("3000_some_no_transaction_migration.up.sql")
+		upNoTxMigration, err := parser.ParseFileToMigration(logger, "3000_some_no_transaction_migration.up.sql")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(upNoTxMigration.Strategy).To(Equal(voyager.SQLNoTransaction))
 	})
@@ -73,14 +78,14 @@ var _ = Describe("Parser", func() {
 	Context("SQL migrations", func() {
 		It("parses the migration into statements", func() {
 			bindata.AssetReturns(multipleStatementMigration, nil)
-			migration, err := parser.ParseFileToMigration("1234_create_and_alter_table.up.sql")
+			migration, err := parser.ParseFileToMigration(logger, "1234_create_and_alter_table.up.sql")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(migration.Statements)).To(Equal(2))
 		})
 
 		It("combines sql functions in one statement", func() {
 			bindata.AssetReturns(sqlFunctionMigration, nil)
-			migration, err := parser.ParseFileToMigration("1800_sql_function_migration.up.sql")
+			migration, err := parser.ParseFileToMigration(logger, "1800_sql_function_migration.up.sql")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(migration.Statements)).To(Equal(1))
 		})
@@ -88,7 +93,7 @@ var _ = Describe("Parser", func() {
 		It("removes the BEGIN and COMMIT statements", func() {
 			bindata.AssetReturns(multipleStatementMigration, nil)
 
-			migration, err := parser.ParseFileToMigration("1234_create_and_alter_table.up.sql")
+			migration, err := parser.ParseFileToMigration(logger, "1234_create_and_alter_table.up.sql")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(migration.Statements)).To(Equal(2))
 			Expect(migration.Statements[0]).ToNot(Equal("BEGIN"))
@@ -98,7 +103,7 @@ var _ = Describe("Parser", func() {
 			It("marks migration as no transaction", func() {
 				bindata.AssetReturns(noTransactionMigration, nil)
 
-				migration, err := parser.ParseFileToMigration("3000_some_no_transaction_migration.up.sql")
+				migration, err := parser.ParseFileToMigration(logger, "3000_some_no_transaction_migration.up.sql")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(migration.Statements)).To(Equal(2))
 			})
@@ -111,7 +116,7 @@ var _ = Describe("Parser", func() {
 				func (m *Migrator) Up_2000() {}
 			`), nil)
 
-			migration, err := parser.ParseFileToMigration("2000_some_go_migration.up.go")
+			migration, err := parser.ParseFileToMigration(logger, "2000_some_go_migration.up.go")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(migration.Name).To(Equal("Up_2000"))
 		})

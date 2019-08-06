@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/concourse/voyager/helpers"
 	"code.cloudfoundry.org/lager/lagertest"
+	"github.com/concourse/voyager/helpers"
 	"github.com/gobuffalo/packr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

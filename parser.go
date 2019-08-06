@@ -1,6 +1,7 @@
 package voyager
 
 import (
+	"code.cloudfoundry.org/lager"
 	"errors"
 	"regexp"
 	"strconv"
@@ -13,39 +14,44 @@ var goMigrationFuncName = regexp.MustCompile(`(Up|Down)_[0-9]*`)
 
 var ErrCouldNotParseDirection = errors.New("could not parse direction for migration")
 
-type Parser struct {
+type parser struct {
 	source Source
 }
 
-func NewParser(source Source) *Parser {
-	return &Parser{
+func NewParser(source Source) *parser {
+	return &parser{
 		source: source,
 	}
 }
 
-func (p *Parser) ParseMigrationFilename(fileName string) (migration, error) {
+func (p *parser) ParseMigrationFilename(logger lager.Logger, fileName string) (Migration, error) {
 	var (
-		migration migration
+		migration Migration
 		err       error
 	)
 
+	logger.WithData(lager.Data{
+		"fileName": fileName,
+	})
 	migration.Direction, err = determineDirection(fileName)
 	if err != nil {
+		logger.Error("failed-to-parse-migration-direction", err)
 		return migration, err
 	}
 
 	migration.Version, err = schemaVersion(fileName)
 	if err != nil {
+		logger.Error("failed-to-parse-migration-version", err)
 		return migration, err
 	}
 
 	return migration, nil
 }
 
-func (p *Parser) ParseFileToMigration(migrationName string) (migration, error) {
+func (p *parser) ParseFileToMigration(logger lager.Logger, migrationName string) (Migration, error) {
 	var migrationContents string
 
-	migration, err := p.ParseMigrationFilename(migrationName)
+	migration, err := p.ParseMigrationFilename(logger, migrationName)
 	if err != nil {
 		return migration, err
 	}
