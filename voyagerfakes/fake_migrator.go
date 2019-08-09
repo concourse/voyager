@@ -37,16 +37,18 @@ type FakeMigrator struct {
 	migrateReturnsOnCall map[int]struct {
 		result1 error
 	}
-	SupportedVersionStub        func(lager.Logger) int
+	SupportedVersionStub        func(lager.Logger) (int, error)
 	supportedVersionMutex       sync.RWMutex
 	supportedVersionArgsForCall []struct {
 		arg1 lager.Logger
 	}
 	supportedVersionReturns struct {
 		result1 int
+		result2 error
 	}
 	supportedVersionReturnsOnCall map[int]struct {
 		result1 int
+		result2 error
 	}
 	UpStub        func(lager.Logger, *sql.DB) error
 	upMutex       sync.RWMutex
@@ -190,7 +192,7 @@ func (fake *FakeMigrator) MigrateReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeMigrator) SupportedVersion(arg1 lager.Logger) int {
+func (fake *FakeMigrator) SupportedVersion(arg1 lager.Logger) (int, error) {
 	fake.supportedVersionMutex.Lock()
 	ret, specificReturn := fake.supportedVersionReturnsOnCall[len(fake.supportedVersionArgsForCall)]
 	fake.supportedVersionArgsForCall = append(fake.supportedVersionArgsForCall, struct {
@@ -202,10 +204,10 @@ func (fake *FakeMigrator) SupportedVersion(arg1 lager.Logger) int {
 		return fake.SupportedVersionStub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
 	fakeReturns := fake.supportedVersionReturns
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *FakeMigrator) SupportedVersionCallCount() int {
@@ -214,7 +216,7 @@ func (fake *FakeMigrator) SupportedVersionCallCount() int {
 	return len(fake.supportedVersionArgsForCall)
 }
 
-func (fake *FakeMigrator) SupportedVersionCalls(stub func(lager.Logger) int) {
+func (fake *FakeMigrator) SupportedVersionCalls(stub func(lager.Logger) (int, error)) {
 	fake.supportedVersionMutex.Lock()
 	defer fake.supportedVersionMutex.Unlock()
 	fake.SupportedVersionStub = stub
@@ -227,27 +229,30 @@ func (fake *FakeMigrator) SupportedVersionArgsForCall(i int) lager.Logger {
 	return argsForCall.arg1
 }
 
-func (fake *FakeMigrator) SupportedVersionReturns(result1 int) {
+func (fake *FakeMigrator) SupportedVersionReturns(result1 int, result2 error) {
 	fake.supportedVersionMutex.Lock()
 	defer fake.supportedVersionMutex.Unlock()
 	fake.SupportedVersionStub = nil
 	fake.supportedVersionReturns = struct {
 		result1 int
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeMigrator) SupportedVersionReturnsOnCall(i int, result1 int) {
+func (fake *FakeMigrator) SupportedVersionReturnsOnCall(i int, result1 int, result2 error) {
 	fake.supportedVersionMutex.Lock()
 	defer fake.supportedVersionMutex.Unlock()
 	fake.SupportedVersionStub = nil
 	if fake.supportedVersionReturnsOnCall == nil {
 		fake.supportedVersionReturnsOnCall = make(map[int]struct {
 			result1 int
+			result2 error
 		})
 	}
 	fake.supportedVersionReturnsOnCall[i] = struct {
 		result1 int
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeMigrator) Up(arg1 lager.Logger, arg2 *sql.DB) error {

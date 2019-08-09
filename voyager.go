@@ -27,7 +27,7 @@ const (
 
 type Migrator interface {
 	CurrentVersion(lager.Logger, *sql.DB) (int, error)
-	SupportedVersion(lager.Logger) int
+	SupportedVersion(lager.Logger) (int, error)
 	Migrate(lager.Logger, *sql.DB, int) error
 	Up(lager.Logger, *sql.DB) error
 }
@@ -37,7 +37,7 @@ type Migrator interface {
 type SchemaAdapter interface {
 	MigrateFromOldSchema(*sql.DB, int) (int, error)
 	MigrateToOldSchema(*sql.DB, int) error
-	OldSchemaLastVersion() int
+	CurrentVersion(*sql.DB) (int, error)
 }
 
 //go:generate counterfeiter . Parser
@@ -73,7 +73,7 @@ type Migration struct {
 	Strategy   Strategy
 }
 
-func (m *migrator) SupportedVersion(logger lager.Logger) int {
+func (m *migrator) SupportedVersion(logger lager.Logger) (int, error) {
 	matches := []Migration{}
 
 	assets := m.source.AssetNames()
@@ -84,8 +84,11 @@ func (m *migrator) SupportedVersion(logger lager.Logger) int {
 			matches = append(matches, migration)
 		}
 	}
+	if len(matches) == 0 {
+		return 0, errors.New("no migrations found")
+	}
 	sortMigrations(matches)
-	return matches[len(matches)-1].Version
+	return matches[len(matches)-1].Version, nil
 }
 
 func (m *migrator) CurrentVersion(logger lager.Logger, db *sql.DB) (int, error) {
@@ -102,7 +105,7 @@ func (m *migrator) CurrentVersion(logger lager.Logger, db *sql.DB) (int, error) 
 
 	if !migrationHistoryExists && m.adapter != nil {
 		logger.Info("migrations-history-schema-does-not-exist")
-		return m.adapter.OldSchemaLastVersion(), nil
+		return m.adapter.CurrentVersion(db)
 	}
 
 	var currentVersion int
@@ -151,7 +154,6 @@ func (m *migrator) Migrate(logger lager.Logger, db *sql.DB, toVersion int) error
 			return err
 		}
 	}
-
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS migrations_history (version bigint, tstamp timestamp with time zone, direction varchar, status varchar, dirty boolean)")
 	if err != nil {
 		return err
