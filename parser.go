@@ -1,11 +1,12 @@
 package voyager
 
 import (
-	"code.cloudfoundry.org/lager"
 	"errors"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"code.cloudfoundry.org/lager"
 )
 
 var noTxPrefix = regexp.MustCompile(`^\s*--\s+(NO_TRANSACTION)`)

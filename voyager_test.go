@@ -1,13 +1,14 @@
 package voyager_test
 
 import (
-	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/lager/lagertest"
 	"database/sql"
 	"io/ioutil"
 	"math/rand"
 	"sync"
 	"time"
+
+	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/lager/lagertest"
 
 	"github.com/concourse/voyager"
 	"github.com/concourse/voyager/migrations"
@@ -131,13 +132,15 @@ var _ = Describe("Voyager Migration", func() {
 		})
 		It("SupportedVersion reports the highest supported migration version", func() {
 			migrator = voyager.NewMigrator(lockID, source, runner, nil)
-			version := migrator.SupportedVersion(logger)
+			version, err := migrator.SupportedVersion(logger)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(version).To(Equal(20000))
 		})
 
 		It("Ignores files it can't parse", func() {
 			migrator = voyager.NewMigrator(lockID, source, runner, nil)
-			version := migrator.SupportedVersion(logger)
+			version, err := migrator.SupportedVersion(logger)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(version).To(Equal(20000))
 		})
 	})

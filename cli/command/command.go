@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"code.cloudfoundry.org/lager"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +9,8 @@ import (
 	"strconv"
 	"text/template"
 	"time"
+
+	"code.cloudfoundry.org/lager"
 
 	"github.com/concourse/voyager"
 	"github.com/concourse/voyager/migrations"
@@ -111,7 +112,7 @@ func (c *MigrateCommand) Execute(args []string) error {
 	}
 
 	box := packr.NewBox(defaultMigrationDir)
-	migrator := voyager.NewMigrator(0, source{box}, migrations.NewMigrationsRunner(), nil)
+	migrator := voyager.NewMigrator(advisoryLockID, source{box}, migrations.NewMigrationsRunner(), nil)
 
 	var toVersion int
 
