@@ -94,7 +94,6 @@ var _ = Describe("Migration CLI", func() {
 	})
 
 	Context("CurrentVersion command", func() {
-
 		It("reports the current version as reported by voyager.CurrentVersion", func() {
 			setupMigrationsHistoryTableToExistAtVersion(db, 12345, false)
 

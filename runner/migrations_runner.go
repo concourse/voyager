@@ -1,5 +1,7 @@
 package runner
 
+import "database/sql"
+
 type MigrationsRunner interface {
-	Run(name string) error
+	Run(db *sql.DB, name string) error
 }

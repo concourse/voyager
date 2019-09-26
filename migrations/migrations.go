@@ -8,15 +8,16 @@ import (
 )
 
 type TestGoMigrationsRunner struct {
-	*sql.DB
+	DB       *sql.DB
 	metadata string
 }
 
-func NewMigrationsRunner(db *sql.DB) runner.MigrationsRunner {
-	return &TestGoMigrationsRunner{db, "sample-metadata"}
+func NewMigrationsRunner() runner.MigrationsRunner {
+	return &TestGoMigrationsRunner{metadata: "sample-metadata"}
 }
 
-func (runner *TestGoMigrationsRunner) Run(name string) error {
+func (runner *TestGoMigrationsRunner) Run(db *sql.DB, name string) error {
+	runner.DB = db
 	res := reflect.ValueOf(runner).MethodByName(name).Call(nil)
 
 	ret := res[0].Interface()
