@@ -151,7 +151,7 @@ var _ = Describe("Voyager Migration", func() {
 			BeforeEach(func() {
 				SetupOldDatabaseSchema(db, 8878, false)
 				fakeAdapter = new(voyagerfakes.FakeSchemaAdapter)
-				fakeAdapter.MigrateFromOldSchemaReturns(8878, nil)
+				fakeAdapter.ConvertFromOldSchemaReturns(8878, nil)
 
 				source.AssetNamesReturns([]string{
 					"1000_initial_migration.up.sql",
@@ -611,7 +611,7 @@ var _ = Describe("Voyager Migration", func() {
 					})
 
 					fakeAdapter = new(voyagerfakes.FakeSchemaAdapter)
-					fakeAdapter.MigrateToOldSchemaStub = func(db *sql.DB, version int) error {
+					fakeAdapter.ConvertToOldSchemaStub = func(db *sql.DB, version int) error {
 
 						_, err := db.Exec("CREATE TABLE old_schema (version bigint, dirty boolean)")
 						if err != nil {

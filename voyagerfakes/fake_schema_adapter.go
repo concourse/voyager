@@ -9,6 +9,32 @@ import (
 )
 
 type FakeSchemaAdapter struct {
+	ConvertFromOldSchemaStub        func(*sql.DB, int) (int, error)
+	convertFromOldSchemaMutex       sync.RWMutex
+	convertFromOldSchemaArgsForCall []struct {
+		arg1 *sql.DB
+		arg2 int
+	}
+	convertFromOldSchemaReturns struct {
+		result1 int
+		result2 error
+	}
+	convertFromOldSchemaReturnsOnCall map[int]struct {
+		result1 int
+		result2 error
+	}
+	ConvertToOldSchemaStub        func(*sql.DB, int) error
+	convertToOldSchemaMutex       sync.RWMutex
+	convertToOldSchemaArgsForCall []struct {
+		arg1 *sql.DB
+		arg2 int
+	}
+	convertToOldSchemaReturns struct {
+		result1 error
+	}
+	convertToOldSchemaReturnsOnCall map[int]struct {
+		result1 error
+	}
 	CurrentVersionStub        func(*sql.DB) (int, error)
 	currentVersionMutex       sync.RWMutex
 	currentVersionArgsForCall []struct {
@@ -22,34 +48,133 @@ type FakeSchemaAdapter struct {
 		result1 int
 		result2 error
 	}
-	MigrateFromOldSchemaStub        func(*sql.DB, int) (int, error)
-	migrateFromOldSchemaMutex       sync.RWMutex
-	migrateFromOldSchemaArgsForCall []struct {
-		arg1 *sql.DB
-		arg2 int
-	}
-	migrateFromOldSchemaReturns struct {
-		result1 int
-		result2 error
-	}
-	migrateFromOldSchemaReturnsOnCall map[int]struct {
-		result1 int
-		result2 error
-	}
-	MigrateToOldSchemaStub        func(*sql.DB, int) error
-	migrateToOldSchemaMutex       sync.RWMutex
-	migrateToOldSchemaArgsForCall []struct {
-		arg1 *sql.DB
-		arg2 int
-	}
-	migrateToOldSchemaReturns struct {
-		result1 error
-	}
-	migrateToOldSchemaReturnsOnCall map[int]struct {
-		result1 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeSchemaAdapter) ConvertFromOldSchema(arg1 *sql.DB, arg2 int) (int, error) {
+	fake.convertFromOldSchemaMutex.Lock()
+	ret, specificReturn := fake.convertFromOldSchemaReturnsOnCall[len(fake.convertFromOldSchemaArgsForCall)]
+	fake.convertFromOldSchemaArgsForCall = append(fake.convertFromOldSchemaArgsForCall, struct {
+		arg1 *sql.DB
+		arg2 int
+	}{arg1, arg2})
+	fake.recordInvocation("ConvertFromOldSchema", []interface{}{arg1, arg2})
+	fake.convertFromOldSchemaMutex.Unlock()
+	if fake.ConvertFromOldSchemaStub != nil {
+		return fake.ConvertFromOldSchemaStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.convertFromOldSchemaReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeSchemaAdapter) ConvertFromOldSchemaCallCount() int {
+	fake.convertFromOldSchemaMutex.RLock()
+	defer fake.convertFromOldSchemaMutex.RUnlock()
+	return len(fake.convertFromOldSchemaArgsForCall)
+}
+
+func (fake *FakeSchemaAdapter) ConvertFromOldSchemaCalls(stub func(*sql.DB, int) (int, error)) {
+	fake.convertFromOldSchemaMutex.Lock()
+	defer fake.convertFromOldSchemaMutex.Unlock()
+	fake.ConvertFromOldSchemaStub = stub
+}
+
+func (fake *FakeSchemaAdapter) ConvertFromOldSchemaArgsForCall(i int) (*sql.DB, int) {
+	fake.convertFromOldSchemaMutex.RLock()
+	defer fake.convertFromOldSchemaMutex.RUnlock()
+	argsForCall := fake.convertFromOldSchemaArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeSchemaAdapter) ConvertFromOldSchemaReturns(result1 int, result2 error) {
+	fake.convertFromOldSchemaMutex.Lock()
+	defer fake.convertFromOldSchemaMutex.Unlock()
+	fake.ConvertFromOldSchemaStub = nil
+	fake.convertFromOldSchemaReturns = struct {
+		result1 int
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeSchemaAdapter) ConvertFromOldSchemaReturnsOnCall(i int, result1 int, result2 error) {
+	fake.convertFromOldSchemaMutex.Lock()
+	defer fake.convertFromOldSchemaMutex.Unlock()
+	fake.ConvertFromOldSchemaStub = nil
+	if fake.convertFromOldSchemaReturnsOnCall == nil {
+		fake.convertFromOldSchemaReturnsOnCall = make(map[int]struct {
+			result1 int
+			result2 error
+		})
+	}
+	fake.convertFromOldSchemaReturnsOnCall[i] = struct {
+		result1 int
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeSchemaAdapter) ConvertToOldSchema(arg1 *sql.DB, arg2 int) error {
+	fake.convertToOldSchemaMutex.Lock()
+	ret, specificReturn := fake.convertToOldSchemaReturnsOnCall[len(fake.convertToOldSchemaArgsForCall)]
+	fake.convertToOldSchemaArgsForCall = append(fake.convertToOldSchemaArgsForCall, struct {
+		arg1 *sql.DB
+		arg2 int
+	}{arg1, arg2})
+	fake.recordInvocation("ConvertToOldSchema", []interface{}{arg1, arg2})
+	fake.convertToOldSchemaMutex.Unlock()
+	if fake.ConvertToOldSchemaStub != nil {
+		return fake.ConvertToOldSchemaStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.convertToOldSchemaReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeSchemaAdapter) ConvertToOldSchemaCallCount() int {
+	fake.convertToOldSchemaMutex.RLock()
+	defer fake.convertToOldSchemaMutex.RUnlock()
+	return len(fake.convertToOldSchemaArgsForCall)
+}
+
+func (fake *FakeSchemaAdapter) ConvertToOldSchemaCalls(stub func(*sql.DB, int) error) {
+	fake.convertToOldSchemaMutex.Lock()
+	defer fake.convertToOldSchemaMutex.Unlock()
+	fake.ConvertToOldSchemaStub = stub
+}
+
+func (fake *FakeSchemaAdapter) ConvertToOldSchemaArgsForCall(i int) (*sql.DB, int) {
+	fake.convertToOldSchemaMutex.RLock()
+	defer fake.convertToOldSchemaMutex.RUnlock()
+	argsForCall := fake.convertToOldSchemaArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeSchemaAdapter) ConvertToOldSchemaReturns(result1 error) {
+	fake.convertToOldSchemaMutex.Lock()
+	defer fake.convertToOldSchemaMutex.Unlock()
+	fake.ConvertToOldSchemaStub = nil
+	fake.convertToOldSchemaReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeSchemaAdapter) ConvertToOldSchemaReturnsOnCall(i int, result1 error) {
+	fake.convertToOldSchemaMutex.Lock()
+	defer fake.convertToOldSchemaMutex.Unlock()
+	fake.ConvertToOldSchemaStub = nil
+	if fake.convertToOldSchemaReturnsOnCall == nil {
+		fake.convertToOldSchemaReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.convertToOldSchemaReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeSchemaAdapter) CurrentVersion(arg1 *sql.DB) (int, error) {
@@ -115,140 +240,15 @@ func (fake *FakeSchemaAdapter) CurrentVersionReturnsOnCall(i int, result1 int, r
 	}{result1, result2}
 }
 
-func (fake *FakeSchemaAdapter) MigrateFromOldSchema(arg1 *sql.DB, arg2 int) (int, error) {
-	fake.migrateFromOldSchemaMutex.Lock()
-	ret, specificReturn := fake.migrateFromOldSchemaReturnsOnCall[len(fake.migrateFromOldSchemaArgsForCall)]
-	fake.migrateFromOldSchemaArgsForCall = append(fake.migrateFromOldSchemaArgsForCall, struct {
-		arg1 *sql.DB
-		arg2 int
-	}{arg1, arg2})
-	fake.recordInvocation("MigrateFromOldSchema", []interface{}{arg1, arg2})
-	fake.migrateFromOldSchemaMutex.Unlock()
-	if fake.MigrateFromOldSchemaStub != nil {
-		return fake.MigrateFromOldSchemaStub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	fakeReturns := fake.migrateFromOldSchemaReturns
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaCallCount() int {
-	fake.migrateFromOldSchemaMutex.RLock()
-	defer fake.migrateFromOldSchemaMutex.RUnlock()
-	return len(fake.migrateFromOldSchemaArgsForCall)
-}
-
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaCalls(stub func(*sql.DB, int) (int, error)) {
-	fake.migrateFromOldSchemaMutex.Lock()
-	defer fake.migrateFromOldSchemaMutex.Unlock()
-	fake.MigrateFromOldSchemaStub = stub
-}
-
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaArgsForCall(i int) (*sql.DB, int) {
-	fake.migrateFromOldSchemaMutex.RLock()
-	defer fake.migrateFromOldSchemaMutex.RUnlock()
-	argsForCall := fake.migrateFromOldSchemaArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaReturns(result1 int, result2 error) {
-	fake.migrateFromOldSchemaMutex.Lock()
-	defer fake.migrateFromOldSchemaMutex.Unlock()
-	fake.MigrateFromOldSchemaStub = nil
-	fake.migrateFromOldSchemaReturns = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeSchemaAdapter) MigrateFromOldSchemaReturnsOnCall(i int, result1 int, result2 error) {
-	fake.migrateFromOldSchemaMutex.Lock()
-	defer fake.migrateFromOldSchemaMutex.Unlock()
-	fake.MigrateFromOldSchemaStub = nil
-	if fake.migrateFromOldSchemaReturnsOnCall == nil {
-		fake.migrateFromOldSchemaReturnsOnCall = make(map[int]struct {
-			result1 int
-			result2 error
-		})
-	}
-	fake.migrateFromOldSchemaReturnsOnCall[i] = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeSchemaAdapter) MigrateToOldSchema(arg1 *sql.DB, arg2 int) error {
-	fake.migrateToOldSchemaMutex.Lock()
-	ret, specificReturn := fake.migrateToOldSchemaReturnsOnCall[len(fake.migrateToOldSchemaArgsForCall)]
-	fake.migrateToOldSchemaArgsForCall = append(fake.migrateToOldSchemaArgsForCall, struct {
-		arg1 *sql.DB
-		arg2 int
-	}{arg1, arg2})
-	fake.recordInvocation("MigrateToOldSchema", []interface{}{arg1, arg2})
-	fake.migrateToOldSchemaMutex.Unlock()
-	if fake.MigrateToOldSchemaStub != nil {
-		return fake.MigrateToOldSchemaStub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.migrateToOldSchemaReturns
-	return fakeReturns.result1
-}
-
-func (fake *FakeSchemaAdapter) MigrateToOldSchemaCallCount() int {
-	fake.migrateToOldSchemaMutex.RLock()
-	defer fake.migrateToOldSchemaMutex.RUnlock()
-	return len(fake.migrateToOldSchemaArgsForCall)
-}
-
-func (fake *FakeSchemaAdapter) MigrateToOldSchemaCalls(stub func(*sql.DB, int) error) {
-	fake.migrateToOldSchemaMutex.Lock()
-	defer fake.migrateToOldSchemaMutex.Unlock()
-	fake.MigrateToOldSchemaStub = stub
-}
-
-func (fake *FakeSchemaAdapter) MigrateToOldSchemaArgsForCall(i int) (*sql.DB, int) {
-	fake.migrateToOldSchemaMutex.RLock()
-	defer fake.migrateToOldSchemaMutex.RUnlock()
-	argsForCall := fake.migrateToOldSchemaArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeSchemaAdapter) MigrateToOldSchemaReturns(result1 error) {
-	fake.migrateToOldSchemaMutex.Lock()
-	defer fake.migrateToOldSchemaMutex.Unlock()
-	fake.MigrateToOldSchemaStub = nil
-	fake.migrateToOldSchemaReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeSchemaAdapter) MigrateToOldSchemaReturnsOnCall(i int, result1 error) {
-	fake.migrateToOldSchemaMutex.Lock()
-	defer fake.migrateToOldSchemaMutex.Unlock()
-	fake.MigrateToOldSchemaStub = nil
-	if fake.migrateToOldSchemaReturnsOnCall == nil {
-		fake.migrateToOldSchemaReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.migrateToOldSchemaReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
 func (fake *FakeSchemaAdapter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.convertFromOldSchemaMutex.RLock()
+	defer fake.convertFromOldSchemaMutex.RUnlock()
+	fake.convertToOldSchemaMutex.RLock()
+	defer fake.convertToOldSchemaMutex.RUnlock()
 	fake.currentVersionMutex.RLock()
 	defer fake.currentVersionMutex.RUnlock()
-	fake.migrateFromOldSchemaMutex.RLock()
-	defer fake.migrateFromOldSchemaMutex.RUnlock()
-	fake.migrateToOldSchemaMutex.RLock()
-	defer fake.migrateToOldSchemaMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
